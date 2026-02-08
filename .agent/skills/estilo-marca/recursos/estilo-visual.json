@@ -1,0 +1,23 @@
+{
+  "marca": "LegalWatch PR",
+  "tema": "Legal Tech / SaaS",
+  "activos": {
+    "logo_path": "core/static/img/logo_legalwatch.png",
+    "favicon": "core/static/img/favicon.ico"
+  },
+  "colores": {
+    "fondo_app": "bg-slate-50",
+    "sidebar": "bg-slate-900 text-white",
+    "tarjeta": "bg-white border border-slate-200 shadow-sm rounded-lg",
+    "texto_principal": "text-slate-900",
+    "texto_secundario": "text-slate-500 text-sm",
+    "accion_primaria": "bg-blue-600 hover:bg-blue-700 text-white rounded-md",
+    "alerta": "bg-red-50 text-red-700 border-red-200"
+  },
+  "componentes": {
+    "navbar": "h-16 bg-white border-b flex items-center px-4",
+    "logo_img": "h-8 w-auto object-contain",
+    "tabla": "w-full text-left border-collapse",
+    "badge_estado": "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+  }
+}

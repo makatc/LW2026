@@ -1,0 +1,22 @@
+{
+    "name": "@lwbeta/db",
+    "version": "0.0.0",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "migrate:up": "node-pg-migrate up",
+        "migrate:down": "node-pg-migrate down",
+        "migrate:create": "node-pg-migrate create"
+    },
+    "dependencies": {
+        "@lwbeta/types": "workspace:^",
+        "node-pg-migrate": "^6.2.2",
+        "pg": "^8.11.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/pg": "^8.10.0",
+        "typescript": "^5.0.0"
+    }
+}

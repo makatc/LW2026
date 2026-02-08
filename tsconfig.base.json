@@ -1,0 +1,40 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "declaration": true,
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "baseUrl": ".",
+        "paths": {
+            "@lwbeta/types/*": [
+                "packages/types/src/*"
+            ],
+            "@lwbeta/types": [
+                "packages/types/src/index"
+            ],
+            "@lwbeta/utils/*": [
+                "packages/utils/src/*"
+            ],
+            "@lwbeta/utils": [
+                "packages/utils/src/index"
+            ],
+            "@lwbeta/db/*": [
+                "packages/db/src/*"
+            ],
+            "@lwbeta/db": [
+                "packages/db/src/index"
+            ]
+        }
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

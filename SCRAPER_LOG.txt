@@ -1,0 +1,4 @@
+[DIAGNOSTICO SCRAPER]
+- URL anterior: http://sutra.oslpr.org/.../MedidaReg.aspx -> REDIRECT/EMPTY
+- URL actual: https://sutra.oslpr.org/medidas -> OK (Contenido encontrado: "Radicada...")
+- Scraper: ROTO (Necesita reescritura para nueva URL y estructura).

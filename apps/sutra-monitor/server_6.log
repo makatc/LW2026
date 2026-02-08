@@ -1,0 +1,113 @@
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +32ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDatabaseModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDiscoveryModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mIngestModule dependencies initialized[39m[38;5;3m +4ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mActiveTrackingModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mMonitorConfigModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mScheduleModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mDiscoveryModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mApiModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mConfigController {/config}:[39m[38;5;3m +33ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/keywords, GET} route[39m[38;5;3m +3ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/keywords, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/keywords/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/phrases, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/phrases, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/phrases/:id, DELETE} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/commissions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/commissions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/commissions/:commissionId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/watchlist, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/watchlist, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/watchlist/by-number, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/config/watchlist/:measureId, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mDashboardController {/dashboard}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/dashboard/summary, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mApiController {/}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/commissions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/watchlist/:measureId/add, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/measures/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/ingest/trigger, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/fix-schema, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCommissionController {/commissions}:[39m[38;5;3m +1ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/commissions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:05 PM [32m    LOG[39m [38;5;3m[SutraScraper] [39m[32mInitializing Playwright Browser...[39m
+🚀 FORZANDO CONEXIÓN A: postgres://postgres:password@127.0.0.1:5433/sutra_monitor
+{"level":30,"time":1770336545969,"pid":16880,"hostname":"BECO","msg":"SutraClient initialized"}
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:06 PM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +403ms[39m
+🚀 Sutra Monitor running on port 3001
+✅ Database connected
+Attempting schema fix...
+Schema fix error: error: password authentication failed for user "postgres"
+    at C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\pg-pool@3.11.0_pg@8.11.0\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async ApiController.fixSchema (C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\apps\sutra-monitor\dist\modules\api\api.controller.js:56:13)
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-execution-context.js:46:28
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-proxy.js:9:17 {
+  length: 104,
+  severity: 'FATAL',
+  code: '28P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '331',
+  routine: 'auth_failed'
+}
+[31m[Nest] 16880  - [39m02/05/2026, 8:09:31 PM [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39m[31mpassword authentication failed for user "postgres"[39m
+error: password authentication failed for user "postgres"
+    at C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\pg-pool@3.11.0_pg@8.11.0\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async ApiController.fixSchema (C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\apps\sutra-monitor\dist\modules\api\api.controller.js:56:13)
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-execution-context.js:46:28
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-proxy.js:9:17
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:37 PM [32m    LOG[39m [38;5;3m[IngestService] [39m[32mCreating run record...[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:37 PM [32m    LOG[39m [38;5;3m[IngestService] [39m[32mScraping measures...[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:38 PM [32m    LOG[39m [38;5;3m[SutraScraper] [39m[32mNavigating to SUTRA...[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:43 PM [32m    LOG[39m [38;5;3m[SutraScraper] [39m[32mFound 4 measures in sidebar. Scraping details...[39m
+[32m[Nest] 16880  - [39m02/05/2026, 8:09:51 PM [32m    LOG[39m [38;5;3m[IngestService] [39m[32mFound 4 measures from scraper.[39m
+[31m[Nest] 16880  - [39m02/05/2026, 8:09:51 PM [31m  ERROR[39m [38;5;3m[IngestService] [39m[31mIngestion process failed[39m
+[31m[Nest] 16880  - [39m02/05/2026, 8:09:51 PM [31m  ERROR[39m [38;5;3m[IngestService] [39m[31merror: value too long for type character varying(255)[39m
+Attempting schema fix...
+Schema fix error: error: password authentication failed for user "postgres"
+    at C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\pg-pool@3.11.0_pg@8.11.0\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async ApiController.fixSchema (C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\apps\sutra-monitor\dist\modules\api\api.controller.js:56:13)
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-execution-context.js:46:28
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-proxy.js:9:17 {
+  length: 104,
+  severity: 'FATAL',
+  code: '28P01',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '331',
+  routine: 'auth_failed'
+}
+[31m[Nest] 16880  - [39m02/05/2026, 8:10:49 PM [31m  ERROR[39m [38;5;3m[ExceptionsHandler] [39m[31mpassword authentication failed for user "postgres"[39m
+error: password authentication failed for user "postgres"
+    at C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\pg-pool@3.11.0_pg@8.11.0\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async ApiController.fixSchema (C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\apps\sutra-monitor\dist\modules\api\api.controller.js:56:13)
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-execution-context.js:46:28
+    at async C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\node_modules\.pnpm\@nestjs+core@10.0.0_@nestjs+common@10.0.0_@nestjs+platform-express@10.0.0_reflect-metadata@0.1.13_rxjs@7.8.1\node_modules\@nestjs\core\router\router-proxy.js:9:17

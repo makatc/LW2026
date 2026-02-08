@@ -1,0 +1,35 @@
+
+> @lwbeta/sutra-dashboard@0.1.0 build C:\Users\becof\OneDrive\Desktop\tico\nuevo projecto\LWBETA\apps\sutra-dashboard
+> next build
+
+   ▲ Next.js 14.1.0
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/9) ...
+   Generating static pages (2/9) 
+   Generating static pages (4/9) 
+   Generating static pages (6/9) 
+ ✓ Generating static pages (9/9) 
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    6.04 kB        99.9 kB
+├ ○ /_not-found                          0 B                0 B
+├ ○ /config                              5.71 kB        89.9 kB
+├ ○ /login                               2.49 kB        86.7 kB
+├ ○ /medidas                             2.21 kB        86.4 kB
+├ ○ /perfil                              2.77 kB          87 kB
+└ ○ /usuarios                            3.39 kB        87.6 kB
++ First Load JS shared by all            84.2 kB
+  ├ chunks/342-fd5f1b765dd57e6b.js       28.9 kB
+  ├ chunks/3c3edc77-26b1d20abe5148b1.js  53.4 kB
+  └ other shared chunks (total)          1.9 kB
+
+
+○  (Static)  prerendered as static content
+

@@ -1,0 +1,6 @@
+{
+    "dev": "pg",
+    "check-order": true,
+    "ignore-pattern": ".*\\.map",
+    "migration-dir": "migrations"
+}
