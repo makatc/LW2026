@@ -39,47 +39,6 @@ export class SutraClient implements OnModuleInit, OnModuleDestroy {
         return this.browser;
     }
 
-    async listSubmittedUpdates(): Promise<ScrapedMeasure[]> {
-        logger.info('Starting scrape: listSubmittedUpdates');
-        const browser = await this.getBrowser();
-        const page = await browser.newPage();
-        const results: ScrapedMeasure[] = [];
-
-        try {
-            // Navigate to main query page - adjusting URL based on known entry points
-            // Assuming there is a "Tramite Legislativo" or similar section. 
-            // Since I cannot browse in real-time without the tool, I will implement resilient 
-            // locators based on typical SUTRA layouts (tables with classes like 'medida', 'tramite').
-
-            // NOTE: This URL is illustrative. Real navigation often requires clicking "Buscar"
-            await page.goto(`${this.BASE_URL}/osl/medidas/buscar`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-            // SIMULATION MODE for "Happy Path" until real DOM is inspected
-            // In a real scenario, we would fill form, search, paginate.
-            logger.info('Navigated to search page');
-
-            // Attempt to extract data using hypothetical selectors
-            // Fallback to "Recent Updates" if direct search isn't simple GET
-
-            // Mocking extraction logic for demonstration of the architecture
-            // The real implementation requires `read_url` or `read_browser_page` to Reverse Engineer the DOM.
-            // I will implement the robust scaffolding now.
-
-            // Example scraper logic:
-            // const rows = page.locator('table.resultados tr');
-            // ... iterate and push to results
-
-        } catch (error) {
-            logger.error({ err: error }, 'Error scraping SUTRA');
-            throw error;
-        } finally {
-            await page.close();
-        }
-
-        return results;
-    }
-
-
     async fetchMeasureDetail(url: string): Promise<any> {
         // Mock implementation until we have real DOM access
         logger.info({ url }, 'Fetching measure detail');
@@ -104,9 +63,4 @@ export class SutraClient implements OnModuleInit, OnModuleDestroy {
         ];
     }
 
-    // Helper to parse dates from format "DD/MM/YYYY"
-    parseDate(dateStr: string): Date {
-        const [day, month, year] = dateStr.split('/');
-        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    }
 }

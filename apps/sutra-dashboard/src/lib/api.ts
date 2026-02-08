@@ -116,10 +116,6 @@ export async function deletePhrase(id: string) {
 }
 
 // Commissions
-export async function fetchCommissions() {
-    return fetchWithAuth('/commissions');
-}
-
 export async function fetchAllCommissions() {
     return fetchWithAuth('/config/commissions/all');
 }
@@ -138,16 +134,6 @@ export async function followCommission(commissionId: string) {
 export async function unfollowCommission(commissionId: string) {
     return fetchWithAuth(`/config/commissions/follow/${commissionId}`, {
         method: 'DELETE',
-    });
-}
-
-export async function fetchRemoteCommissions() {
-    return fetchWithAuth('/config/commissions/remote');
-}
-
-export async function seedOfficialCommissions() {
-    return fetchWithAuth('/config/commissions/seed-official', {
-        method: 'POST',
     });
 }
 
@@ -223,16 +209,5 @@ export async function addMeasureToWatchlist(measureId: string) {
     return fetchWithAuth('/config/watchlist', {
         method: 'POST',
         body: JSON.stringify({ measureId }),
-    });
-}
-// Admin SMTP
-export async function getSmtpSettings() {
-    return fetchWithAuth('/admin/settings/smtp');
-}
-
-export async function saveSmtpSettings(data: any) {
-    return fetchWithAuth('/admin/settings/smtp', {
-        method: 'POST',
-        body: JSON.stringify(data),
     });
 }

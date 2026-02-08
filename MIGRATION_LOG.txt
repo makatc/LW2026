@@ -1,5 +1,0 @@
-Migración de datos SMTP completada con éxito.
-- Schema Update ejecutado.
-- DB levantada.
-- Script de migración borrado.
-Proceso terminado.
