@@ -7,8 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/' },
-    // { label: 'Medidas', href: '/medidas' }, // Removed
-    // { label: 'Configuración', href: '/config' }, // Moved to SubNav
 ];
 
 export default function TopNav() {

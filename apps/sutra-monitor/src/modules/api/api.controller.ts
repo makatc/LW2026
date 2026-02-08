@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Logger } from '@nestjs/common';
-import { Public } from '../auth/public.decorator';
+import { Public } from '../auth/decorators';
 import { pool } from '@lwbeta/db';
 import { ConfigService } from '../config/config.service';
 import { IngestService } from '../ingest/ingest.service';
@@ -138,29 +138,4 @@ export class ApiController {
         return { success: true };
     }
 
-    @Post('fix-schema')
-    async fixSchema() {
-        console.log('fixSchema called');
-        let localClient;
-        try {
-            const { Client } = require('pg');
-            const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5433/sutra_monitor';
-            console.log('Connecting to:', dbUrl);
-
-            localClient = new Client({ connectionString: dbUrl });
-            await localClient.connect();
-
-            console.log('Connected. Running ALTER...');
-            await localClient.query('ALTER TABLE sutra_commissions ALTER COLUMN name TYPE TEXT');
-            await localClient.query('ALTER TABLE sutra_commissions ALTER COLUMN slug TYPE TEXT');
-
-            console.log('Schema fixed successfully');
-            await localClient.end();
-            return { message: 'Schema fixed' };
-        } catch (e: any) {
-            console.error('Schema fix error:', e);
-            if (localClient) await localClient.end().catch(() => { });
-            return { status: 'error', message: e.message };
-        }
-    }
 }

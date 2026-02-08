@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueEvents } from 'bullmq';
+import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 
 const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -9,11 +9,6 @@ const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', 
 export const ingestQueue = new Queue('ingest', { connection });
 export const discoveryQueue = new Queue('discovery', { connection });
 export const trackingQueue = new Queue('tracking', { connection });
-
-// Queue Events for monitoring
-export const ingestQueueEvents = new QueueEvents('ingest', { connection });
-export const discoveryQueueEvents = new QueueEvents('discovery', { connection });
-export const trackingQueueEvents = new QueueEvents('tracking', { connection });
 
 // Job options
 export const defaultJobOptions = {
