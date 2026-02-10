@@ -10,6 +10,7 @@ import {
   SourceSnapshot,
 } from './entities';
 import { CommonModule } from './common';
+import { DashboardIntegrationModule } from './dashboard-integration/dashboard-integration.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CommonModule } from './common';
       }),
       inject: [ConfigService],
     }),
+    DashboardIntegrationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
