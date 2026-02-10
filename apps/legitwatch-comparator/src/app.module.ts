@@ -15,6 +15,7 @@ import { CommonModule } from './common';
 import { DashboardIntegrationModule } from './dashboard-integration/dashboard-integration.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ComparisonModule } from './comparison/comparison.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ComparisonModule } from './comparison/comparison.module';
     DashboardIntegrationModule,
     DocumentsModule,
     ComparisonModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
