@@ -29,12 +29,6 @@ importers:
 
   apps/sutra-dashboard:
     dependencies:
-      '@lwbeta/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@lwbeta/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       '@tanstack/react-query':
         specifier: ^5.90.20
         version: 5.90.20(react@18.0.0)
@@ -117,15 +111,9 @@ importers:
       bullmq:
         specifier: ^5.67.3
         version: 5.67.3
-      handlebars:
-        specifier: ^4.7.8
-        version: 4.7.8
       ioredis:
         specifier: ^5.9.2
         version: 5.9.2
-      nodemailer:
-        specifier: ^8.0.0
-        version: 8.0.0
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -166,9 +154,6 @@ importers:
       '@types/node':
         specifier: ^20.3.1
         version: 20.3.1
-      '@types/nodemailer':
-        specifier: ^7.0.9
-        version: 7.0.9
       '@types/passport-jwt':
         specifier: ^4.0.1
         version: 4.0.1
@@ -1619,12 +1604,6 @@ packages:
 
   /@types/node@20.3.1:
     resolution: {integrity: sha512-EhcH/wvidPy1WeML3TtYFGR83UzjxeWRen9V402T8aUGYsCHOmfoisV3ZSg03gAFIbLq8TnWOJ0f4cALtnSEUg==}
-
-  /@types/nodemailer@7.0.9:
-    resolution: {integrity: sha512-vI8oF1M+8JvQhsId0Pc38BdUP2evenIIys7c7p+9OZXSPOH5c1dyINP1jT8xQ2xPuBUXmIC87s+91IZMDjH8Ow==}
-    dependencies:
-      '@types/node': 20.3.1
-    dev: true
 
   /@types/parse-json@4.0.2:
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
@@ -4216,6 +4195,7 @@ packages:
       wordwrap: 1.0.0
     optionalDependencies:
       uglify-js: 3.19.3
+    dev: true
 
   /has-bigints@1.1.0:
     resolution: {integrity: sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg==}
@@ -5625,6 +5605,7 @@ packages:
 
   /neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
+    dev: true
 
   /next@14.1.0(react-dom@18.0.0)(react@18.0.0):
     resolution: {integrity: sha512-wlzrsbfeSU48YQBjZhDzOwhWhGsy+uQycR8bHAOt1LY1bn3zZEcDyHQOEoN3aWzQ8LHCAJ1nqrWCc9XF2+O45Q==}
@@ -5726,11 +5707,6 @@ packages:
   /node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
     dev: true
-
-  /nodemailer@8.0.0:
-    resolution: {integrity: sha512-xvVJf/f0bzmNpnRIbhCp/IKxaHgJ6QynvUbLXzzMRPG3LDQr5oXkYuw4uDFyFYs8cge8agwwrJAXZsd4hhMquw==}
-    engines: {node: '>=6.0.0'}
-    dev: false
 
   /normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
@@ -6875,6 +6851,7 @@ packages:
   /source-map@0.6.1:
     resolution: {integrity: sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==}
     engines: {node: '>=0.10.0'}
+    dev: true
 
   /source-map@0.7.4:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
@@ -7609,6 +7586,7 @@ packages:
     engines: {node: '>=0.8.0'}
     hasBin: true
     requiresBuild: true
+    dev: true
     optional: true
 
   /uid@2.0.2:
@@ -7918,6 +7896,7 @@ packages:
 
   /wordwrap@1.0.0:
     resolution: {integrity: sha512-gvVzJFlPycKc5dZN4yPkP8w7Dc37BtP1yczEneOb4uq34pXZcvrtRTmWV8W+Ume+XCxKgbjM+nevkyFPMybd4Q==}
+    dev: true
 
   /wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}

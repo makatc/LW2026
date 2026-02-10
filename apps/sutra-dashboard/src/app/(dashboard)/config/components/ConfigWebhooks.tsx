@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchWebhooks, updateWebhooks } from '@/lib/api';
+import { fetchWebhooks, updateWebhooks, fetchEmailPreferences, updateEmailPreferences } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function ConfigWebhooks() {
@@ -48,12 +48,7 @@ export function ConfigWebhooks() {
 
     const loadEmailPreferences = async () => {
         try {
-            const data = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/config/email-preferences`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            }).then(r => r.json());
-
+            const data = await fetchEmailPreferences();
             setEmailEnabled(data.enabled ?? true);
             setEmailFrequency(data.frequency || 'daily');
         } catch (error) {
@@ -67,16 +62,9 @@ export function ConfigWebhooks() {
         setEmailLoading(true);
 
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/config/email-preferences`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    enabled: emailEnabled,
-                    frequency: emailFrequency
-                })
+            await updateEmailPreferences({
+                enabled: emailEnabled,
+                frequency: emailFrequency
             });
 
             setMessage({ type: 'success', text: 'Preferencias de email guardadas correctamente' });
@@ -220,13 +208,13 @@ export function ConfigWebhooks() {
                                 onChange={(e) => setEmailFrequency(e.target.value as 'daily' | 'weekly')}
                                 className="w-full rounded-lg border-slate-200 bg-white focus:border-primary focus:ring-primary text-sm"
                             >
-                                <option value="daily">Diario (cada 30 minutos)</option>
-                                <option value="weekly">Semanal (lunes a las 9 AM)</option>
+                                <option value="daily">Diario</option>
+                                <option value="weekly">Semanal</option>
                             </select>
                             <p className="text-xs text-slate-600 mt-2">
                                 {emailFrequency === 'daily'
-                                    ? '📅 Recibirás un resumen cada 30 minutos si hay nuevas alertas.'
-                                    : '📅 Recibirás un resumen semanal cada lunes a las 9 AM con todas las alertas de la semana.'}
+                                    ? '📅 Recibirás un resumen diario si hay nuevas alertas.'
+                                    : '📅 Recibirás un resumen semanal con todas las alertas de la semana.'}
                             </p>
                         </div>
                     )}

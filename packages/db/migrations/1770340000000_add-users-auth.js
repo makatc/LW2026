@@ -62,7 +62,7 @@ exports.up = (pgm) => {
         INSERT INTO users (email, password_hash, name, role)
         VALUES (
             'admin@sutramonitor.com',
-            '$2b$10$rKZvFQHxJvEfQXpGZJ5PJeYvXxYxYxYxYxYxYxYxYxYxYxYxYxY',
+            '$2b$10$Ch7dXpUc6BqqUXuNRAn0JeEnR93N0XJiNhlFpfITWRFcecKdVyw6a',
             'Admin User',
             'admin'
         )

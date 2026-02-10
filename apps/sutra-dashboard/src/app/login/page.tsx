@@ -41,7 +41,7 @@ export default function LoginPage() {
                         <img
                             src="/logologin.png"
                             alt="LegalWatch AI"
-                            className="h-20 object-contain"
+                            className="h-14 object-contain"
                         />
                     </div>
 

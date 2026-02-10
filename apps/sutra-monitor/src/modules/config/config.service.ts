@@ -76,16 +76,19 @@ export class ConfigService {
     // Commissions
     async followCommission(userId: string | undefined, commissionId: string) {
         const config = await this.getMyConfig(userId);
+        console.log(`[ConfigService] User ${userId} is following commission ${commissionId} using config ${config.id}`);
         return this.configRepo.followCommission(config.id, commissionId);
     }
 
     async unfollowCommission(userId: string | undefined, commissionId: string) {
         const config = await this.getMyConfig(userId);
+        console.log(`[ConfigService] User ${userId} is unfollowing commission ${commissionId} using config ${config.id}`);
         return this.configRepo.unfollowCommission(config.id, commissionId);
     }
 
     async getFollowedCommissions(userId?: string) {
         const config = await this.getMyConfig(userId);
+        console.log(`[ConfigService] Fetching followed commissions for User ${userId} using config ${config.id}`);
         return this.configRepo.getFollowedCommissions(config.id);
     }
 

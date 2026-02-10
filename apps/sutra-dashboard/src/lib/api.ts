@@ -39,7 +39,12 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
         throw new Error(errMsg);
     }
 
-    return response.json();
+    if (response.status === 204) {
+        return null;
+    }
+
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
 }
 
 export async function updatePassword(currentPassword: string, newPassword: string) {
@@ -162,6 +167,17 @@ export async function fetchWebhooks() {
 
 export async function updateWebhooks(data: { alertsUrl: string, updatesUrl: string }) {
     return fetchWithAuth('/config/webhooks', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+export async function fetchEmailPreferences() {
+    return fetchWithAuth('/config/email-preferences');
+}
+
+export async function updateEmailPreferences(data: { enabled: boolean, frequency: 'daily' | 'weekly' }) {
+    return fetchWithAuth('/config/email-preferences', {
         method: 'POST',
         body: JSON.stringify(data),
     });

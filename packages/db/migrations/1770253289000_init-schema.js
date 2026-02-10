@@ -60,7 +60,7 @@ exports.up = (pgm) => {
     // 5. Config Tables
     pgm.createTable('monitor_configs', {
         id: { type: 'uuid', primaryKey: true, default: pgm.func('gen_random_uuid()') },
-        user_id: { type: 'uuid' },
+        // user_id: { type: 'uuid' }, // Added later in migration 1770340000000
         created_at: { type: 'timestamp', notNull: true, default: pgm.func('NOW()') },
         updated_at: { type: 'timestamp', notNull: true, default: pgm.func('NOW()') },
     });

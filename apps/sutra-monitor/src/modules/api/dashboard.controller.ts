@@ -108,6 +108,7 @@ export class DashboardController {
       SELECT 
         wi.id,
         wi.measure_id as "measureId",
+        wi.measure_number as "measureNumber",
         wi.updated_at as "updatedAt",
         m.numero,
         m.titulo,
@@ -115,7 +116,7 @@ export class DashboardController {
         m.fecha_ingreso as "fechaIngreso"
       FROM watchlist_items wi
       JOIN monitor_configs mc ON wi.config_id = mc.id
-      JOIN measures m ON wi.measure_id = m.id
+      LEFT JOIN measures m ON wi.measure_id = m.id
       WHERE mc.user_id = $1 AND wi.enabled = true
       ORDER BY wi.updated_at DESC
       LIMIT $2
@@ -125,11 +126,12 @@ export class DashboardController {
       data: result.rows.map(row => ({
         id: row.id,
         measureId: row.measureId,
+        measureNumber: row.measureNumber,
         updatedAt: row.updatedAt,
         measure: {
-          numero: row.numero,
-          titulo: row.titulo,
-          estado: row.estado,
+          numero: row.numero || row.measureNumber,
+          titulo: row.titulo || 'Medida pendiente de búsqueda',
+          estado: row.estado || 'Pendiente',
           fechaIngreso: row.fechaIngreso
         }
       }))

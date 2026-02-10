@@ -97,7 +97,7 @@ export class NotificationService {
         }
     }
 
-    @Cron(CronExpression.EVERY_30_MINUTES)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async processPendingNotifications() {
         this.logger.log('Checking for pending notifications...');
         await this.processNotifications('daily');

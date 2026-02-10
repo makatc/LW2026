@@ -3,19 +3,26 @@ import { MonitorConfig, KeywordRule } from '@lwbeta/types';
 
 export class ConfigRepository {
     async getOrCreateDefaultConfig(userId?: string): Promise<MonitorConfig> {
-        // For now, assuming single user or one main config per user
-        let query = 'SELECT * FROM monitor_configs LIMIT 1';
-        let params: any[] = [];
-
         if (userId) {
-            query = 'SELECT * FROM monitor_configs WHERE user_id = $1 LIMIT 1';
-            params = [userId];
+            // Priority 1: User-specific config
+            const result = await pool.query('SELECT * FROM monitor_configs WHERE user_id = $1 LIMIT 1', [userId]);
+            if (result.rows[0]) return result.rows[0];
+
+            // Create new for this user
+            const insert = await pool.query(
+                'INSERT INTO monitor_configs (user_id) VALUES ($1) ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW() RETURNING *',
+                [userId]
+            );
+            return insert.rows[0];
         }
 
-        const result = await pool.query(query, params);
-        if (result.rows[0]) return result.rows[0];
+        // Fallback: Default global config (where user_id is null)
+        const globalResult = await pool.query('SELECT * FROM monitor_configs WHERE user_id IS NULL LIMIT 1');
+        if (globalResult.rows[0]) return globalResult.rows[0];
 
-        return (await pool.query('INSERT INTO monitor_configs (user_id) VALUES ($1) RETURNING *', [userId || null])).rows[0];
+        // Create global fallback
+        const globalInsert = await pool.query('INSERT INTO monitor_configs (user_id) VALUES (null) RETURNING *');
+        return globalInsert.rows[0];
     }
 
     async updateWebhooks(configId: string, alertsUrl: string, updatesUrl: string): Promise<MonitorConfig> {

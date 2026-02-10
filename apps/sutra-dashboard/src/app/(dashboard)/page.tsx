@@ -141,10 +141,10 @@ export default function DashboardPage() {
                                 watchlistItems.map((item: any) => (
                                     <div key={item.id} className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 hover:border-indigo-300 hover:bg-indigo-100 transition-all">
                                         <p className="text-xs font-semibold text-slate-900 line-clamp-2 mb-1.5">
-                                            {item.numero || item.measureId}
+                                            {item.measure?.numero || item.measureNumber || item.measureId}
                                         </p>
                                         <p className="text-xs text-slate-600 line-clamp-2">
-                                            {item.titulo || 'Sin título'}
+                                            {item.measure?.titulo || 'Sin título'}
                                         </p>
                                     </div>
                                 ))

@@ -110,4 +110,16 @@ export class ConfigController {
     async removeFromWatchlist(@UserID() userId: string, @Param('measureId') measureId: string) {
         return this.configService.removeFromWatchlist(userId, measureId);
     }
+
+    @Get('email-preferences')
+    async getEmailPreferences(@UserID() userId: string) {
+        const config = await this.configService.getMyConfig(userId);
+        return this.configService.getEmailPreferences(config.id);
+    }
+
+    @Post('email-preferences')
+    async updateEmailPreferences(@UserID() userId: string, @Body() body: { enabled: boolean, frequency: 'daily' | 'weekly' }) {
+        const config = await this.configService.getMyConfig(userId);
+        return this.configService.updateEmailPreferences(config.id, body.enabled, body.frequency);
+    }
 }
