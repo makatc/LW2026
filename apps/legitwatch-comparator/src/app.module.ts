@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import {
@@ -11,6 +12,7 @@ import {
 } from './entities';
 import { CommonModule } from './common';
 import { DashboardIntegrationModule } from './dashboard-integration/dashboard-integration.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -36,7 +38,18 @@ import { DashboardIntegrationModule } from './dashboard-integration/dashboard-in
       }),
       inject: [ConfigService],
     }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        connection: {
+          host: configService.get('REDIS_HOST') || 'localhost',
+          port: configService.get('REDIS_PORT') || 6379,
+        },
+      }),
+      inject: [ConfigService],
+    }),
     DashboardIntegrationModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
