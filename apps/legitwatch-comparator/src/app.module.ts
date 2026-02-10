@@ -9,10 +9,12 @@ import {
   DocumentVersion,
   DocumentChunk,
   SourceSnapshot,
+  ComparisonResult,
 } from './entities';
 import { CommonModule } from './common';
 import { DashboardIntegrationModule } from './dashboard-integration/dashboard-integration.module';
 import { DocumentsModule } from './documents/documents.module';
+import { ComparisonModule } from './comparison/comparison.module';
 
 @Module({
   imports: [
@@ -30,7 +32,7 @@ import { DocumentsModule } from './documents/documents.module';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
-        entities: [Document, DocumentVersion, DocumentChunk, SourceSnapshot],
+        entities: [Document, DocumentVersion, DocumentChunk, SourceSnapshot, ComparisonResult],
         synchronize: false,
         migrations: ['dist/migrations/*.js'],
         migrationsRun: false,
@@ -50,6 +52,7 @@ import { DocumentsModule } from './documents/documents.module';
     }),
     DashboardIntegrationModule,
     DocumentsModule,
+    ComparisonModule,
   ],
   controllers: [AppController],
   providers: [AppService],

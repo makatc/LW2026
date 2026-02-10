@@ -1,0 +1,47 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
+import {
+  DocumentVersion,
+  DocumentChunk,
+  ComparisonResult,
+} from '../entities';
+import { ComparisonController } from './comparison.controller';
+import { DiffService, ComparisonService } from './services';
+import { CompareProcessor } from './processors/compare.processor';
+
+/**
+ * ComparisonModule
+ * Handles document comparison and diff generation
+ */
+@Module({
+  imports: [
+    ConfigModule,
+    TypeOrmModule.forFeature([
+      DocumentVersion,
+      DocumentChunk,
+      ComparisonResult,
+    ]),
+    BullModule.registerQueue({
+      name: 'comparison-queue',
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: {
+          type: 'exponential',
+          delay: 10000,
+        },
+        removeOnComplete: 50,
+        removeOnFail: 25,
+      },
+    }),
+  ],
+  controllers: [ComparisonController],
+  providers: [
+    DiffService,
+    ComparisonService,
+    CompareProcessor,
+  ],
+  exports: [DiffService, ComparisonService],
+})
+export class ComparisonModule {}
