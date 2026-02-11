@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Document } from '../../entities/document.entity';
 import { DocumentVersion } from '../../entities/document-version.entity';
 
@@ -28,7 +28,7 @@ export class SearchService {
     private readonly documentRepo: Repository<Document>,
     @InjectRepository(DocumentVersion)
     private readonly versionRepo: Repository<DocumentVersion>,
-  ) {}
+  ) { }
 
   /**
    * Search documents by query string
