@@ -10,7 +10,7 @@
         "migrate:create": "node-pg-migrate create"
     },
     "dependencies": {
-        "@lwbeta/types": "workspace:^",
+        "@lwbeta/types": "file:../types",
         "node-pg-migrate": "^6.2.2",
         "pg": "^8.11.0"
     },

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/' },
+    { label: 'Comparador', href: '/comparator' },
 ];
 
 export default function TopNav() {

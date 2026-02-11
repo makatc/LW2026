@@ -5,7 +5,27 @@
         "baseUrl": "./",
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
-        "sourceMap": true
+        "sourceMap": true,
+        "paths": {
+            "@lwbeta/types/*": [
+                "../../packages/types/src/*"
+            ],
+            "@lwbeta/types": [
+                "../../packages/types/src/index"
+            ],
+            "@lwbeta/utils/*": [
+                "../../packages/utils/src/*"
+            ],
+            "@lwbeta/utils": [
+                "../../packages/utils/src/index"
+            ],
+            "@lwbeta/db/*": [
+                "../../packages/db/src/*"
+            ],
+            "@lwbeta/db": [
+                "../../packages/db/src/index"
+            ]
+        }
     },
     "include": [
         "src/**/*"

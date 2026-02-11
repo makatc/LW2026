@@ -26,17 +26,17 @@ echo -e "${GREEN}✓${NC} Found monorepo root"
 # Step 1: Check Docker services
 echo ""
 echo "Step 1: Checking Docker services..."
-if ! docker-compose ps | grep -q "postgres.*Up"; then
+if ! docker compose ps | grep -q "postgres.*Up"; then
     echo -e "${YELLOW}⚠${NC} PostgreSQL is not running. Starting..."
-    docker-compose up -d postgres
+    docker compose up -d postgres
     sleep 3
 else
     echo -e "${GREEN}✓${NC} PostgreSQL is running"
 fi
 
-if ! docker-compose ps | grep -q "redis.*Up"; then
+if ! docker compose ps | grep -q "redis.*Up"; then
     echo -e "${YELLOW}⚠${NC} Redis is not running. Starting..."
-    docker-compose up -d redis
+    docker compose up -d redis
     sleep 2
 else
     echo -e "${GREEN}✓${NC} Redis is running"
@@ -45,13 +45,13 @@ fi
 # Step 2: Create database
 echo ""
 echo "Step 2: Creating legitwatch_comparator database..."
-DB_EXISTS=$(docker exec lwbeta-postgres-1 psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='legitwatch_comparator'" 2>/dev/null || echo "")
+DB_EXISTS=$(docker compose exec -T postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='legitwatch_comparator'" 2>/dev/null || echo "")
 
 if [ "$DB_EXISTS" = "1" ]; then
     echo -e "${GREEN}✓${NC} Database 'legitwatch_comparator' already exists"
 else
     echo "Creating database..."
-    docker exec lwbeta-postgres-1 psql -U postgres -c "CREATE DATABASE legitwatch_comparator;" || {
+    docker compose exec -T postgres psql -U postgres -c "CREATE DATABASE legitwatch_comparator;" || {
         echo -e "${RED}✗${NC} Failed to create database"
         exit 1
     }
@@ -60,7 +60,7 @@ fi
 
 # Enable pgvector extension
 echo "Enabling pgvector extension..."
-docker exec lwbeta-postgres-1 psql -U postgres -d legitwatch_comparator -c "CREATE EXTENSION IF NOT EXISTS vector;" || {
+docker compose exec -T postgres psql -U postgres -d legitwatch_comparator -c "CREATE EXTENSION IF NOT EXISTS vector;" || {
     echo -e "${YELLOW}⚠${NC} pgvector extension not available (will skip for now)"
 }
 
@@ -113,7 +113,7 @@ echo ""
 echo "Step 6: Verifying setup..."
 
 # Check tables
-TABLES=$(docker exec lwbeta-postgres-1 psql -U postgres -d legitwatch_comparator -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "0")
+TABLES=$(docker compose exec -T postgres psql -U postgres -d legitwatch_comparator -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'" 2>/dev/null || echo "0")
 
 if [ "$TABLES" -gt "0" ]; then
     echo -e "${GREEN}✓${NC} Database tables created ($TABLES tables)"
