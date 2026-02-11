@@ -13,6 +13,8 @@ import {
   IngestionService,
   StructureDetectorService,
   NormalizerService,
+  FileParserService,
+  UploadService,
 } from './services';
 import { IngestionProcessor } from './processors/ingestion.processor';
 
@@ -47,8 +49,16 @@ import { IngestionProcessor } from './processors/ingestion.processor';
     IngestionService,
     StructureDetectorService,
     NormalizerService,
+    FileParserService,
+    UploadService,
     IngestionProcessor,
   ],
-  exports: [IngestionService, StructureDetectorService, NormalizerService],
+  exports: [
+    IngestionService,
+    StructureDetectorService,
+    NormalizerService,
+    FileParserService,
+    UploadService,
+  ],
 })
 export class DocumentsModule {}

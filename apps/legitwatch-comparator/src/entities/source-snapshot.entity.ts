@@ -11,6 +11,7 @@ export enum SourceType {
   DOCX = 'DOCX',
   HTML = 'HTML',
   TEXT = 'TEXT',
+  UPLOAD = 'UPLOAD',
 }
 
 @Entity('source_snapshots')

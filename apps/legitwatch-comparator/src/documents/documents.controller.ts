@@ -7,8 +7,14 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  UploadedFile,
+  UploadedFiles,
+  UseInterceptors,
+  Query,
 } from '@nestjs/common';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { IngestionService, JobStatusInfo } from './services/ingestion.service';
+import { UploadService, UploadResult } from './services/upload.service';
 import { IngestDocumentDto } from './dto';
 
 /**
@@ -19,7 +25,50 @@ import { IngestDocumentDto } from './dto';
 export class DocumentsController {
   private readonly logger = new Logger(DocumentsController.name);
 
-  constructor(private readonly ingestionService: IngestionService) {}
+  constructor(
+    private readonly ingestionService: IngestionService,
+    private readonly uploadService: UploadService,
+  ) {}
+
+  /**
+   * Upload a single file
+   * POST /documents/upload
+   */
+  @Post('upload')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('title') title?: string,
+    @Query('description') description?: string,
+    @Query('autoIngest') autoIngest?: string,
+  ): Promise<UploadResult> {
+    this.logger.log(`File upload request: ${file?.originalname || 'unknown'}`);
+
+    return this.uploadService.uploadFile(file, {
+      title,
+      description,
+      autoIngest: autoIngest !== 'false',
+    });
+  }
+
+  /**
+   * Upload multiple files
+   * POST /documents/upload/batch
+   */
+  @Post('upload/batch')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FilesInterceptor('files', 10))
+  async uploadFiles(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Query('autoIngest') autoIngest?: string,
+  ): Promise<UploadResult[]> {
+    this.logger.log(`Batch upload request: ${files?.length || 0} files`);
+
+    return this.uploadService.uploadFiles(files, {
+      autoIngest: autoIngest !== 'false',
+    });
+  }
 
   /**
    * Queue a document for ingestion
