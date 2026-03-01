@@ -29,7 +29,7 @@ import { DatabaseMigrationService } from './database-migration.service';
         ApiModule,
         DatabaseModule,
         HealthModule,
-        QueueModule,
+        // QueueModule,
     ],
     controllers: [],
     providers: [

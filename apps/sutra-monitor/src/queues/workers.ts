@@ -24,7 +24,7 @@ export const createIngestWorker = (ingestService: any) => {
             }
         },
         {
-            connection,
+            connection: connection as any,
             concurrency: 1, // Process one job at a time
             limiter: {
                 max: 10, // Max 10 jobs
@@ -50,7 +50,7 @@ export const createDiscoveryWorker = (discoveryService: any) => {
             }
         },
         {
-            connection,
+            connection: connection as any,
             concurrency: 1,
         }
     );
@@ -72,7 +72,7 @@ export const createTrackingWorker = (trackingService: any) => {
             }
         },
         {
-            connection,
+            connection: connection as any,
             concurrency: 2, // Can process 2 tracking jobs in parallel
         }
     );

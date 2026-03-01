@@ -6,9 +6,9 @@ const connection = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', 
 });
 
 // Queues
-export const ingestQueue = new Queue('ingest', { connection });
-export const discoveryQueue = new Queue('discovery', { connection });
-export const trackingQueue = new Queue('tracking', { connection });
+export const ingestQueue = new Queue('ingest', { connection: connection as any });
+export const discoveryQueue = new Queue('discovery', { connection: connection as any });
+export const trackingQueue = new Queue('tracking', { connection: connection as any });
 
 // Job options
 export const defaultJobOptions = {

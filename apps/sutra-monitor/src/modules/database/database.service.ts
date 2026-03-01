@@ -6,8 +6,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     private pool!: Pool;
 
     onModuleInit() {
-        const connectionString = 'postgres://postgres:password@127.0.0.1:5433/sutra_monitor';
-        console.log('🚀 FORZANDO CONEXIÓN A:', connectionString);
+        const connectionString = process.env.DATABASE_URL || 'postgres://postgres:password@127.0.0.1:5432/sutra_monitor';
+        console.log('🚀 Connecting to DB...');
 
         this.pool = new Pool({
             connectionString,
