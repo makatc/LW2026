@@ -94,9 +94,29 @@ export class UploadService {
 
     if (existingSnapshot) {
       this.logger.log(
-        `Snapshot with same hash already exists: ${existingSnapshot.id}`,
+        `Snapshot with same hash already exists: ${existingSnapshot.id}, returning existing record`,
       );
-      // TODO: Return existing document/version instead of creating duplicate
+      // Find the existing version and document linked to this snapshot
+      const existingVersion = await this.versionRepo.findOne({
+        where: { metadata: { snapshotId: existingSnapshot.id } as any },
+      });
+      const existingDocument = existingVersion
+        ? await this.documentRepo.findOne({ where: { id: existingVersion.documentId } })
+        : null;
+
+      return {
+        success: true,
+        documentId: existingDocument?.id ?? '',
+        versionId: existingVersion?.id ?? '',
+        snapshotId: existingSnapshot.id,
+        message: `File already uploaded previously: ${file.originalname}`,
+        metadata: {
+          fileName: file.originalname,
+          fileSize: file.size,
+          wordCount: parsed.metadata.wordCount,
+          pageCount: parsed.metadata.pageCount,
+        },
+      };
     }
 
     // Determine title (use provided or filename without extension)

@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import * as mammoth from 'mammoth';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse');
 
 export interface ParsedFile {
@@ -101,10 +102,37 @@ export class FileParserService {
   ): Promise<{ text: string; metadata: Partial<ParsedFile['metadata']> }> {
     this.logger.debug(`Parsing PDF document: ${file.originalname}`);
 
-    const data = await pdfParse(file.buffer);
+    let data: any;
+    try {
+      data = await pdfParse(file.buffer, {
+        // Disable test-file check that can cause failures
+        max: 0,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Encrypted / password-protected PDF
+      if (msg.includes('encrypt') || msg.includes('password')) {
+        throw new BadRequestException(
+          `El PDF está protegido con contraseña y no puede procesarse.`,
+        );
+      }
+      // Corrupted or unsupported PDF variant
+      throw new BadRequestException(
+        `No se pudo leer el PDF "${file.originalname}". Asegúrate de que no esté dañado ni sea solo una imagen escaneada. Detalle: ${msg}`,
+      );
+    }
+
+    const text: string = data.text ?? '';
+
+    // PDF with no extractable text (scanned image PDF)
+    if (!text || text.trim().length < 10) {
+      throw new BadRequestException(
+        `El PDF "${file.originalname}" no contiene texto extraíble. Es posible que sea un PDF escaneado (solo imagen). Convierte el archivo a PDF con capa de texto o usa un archivo .txt/.docx.`,
+      );
+    }
 
     return {
-      text: data.text,
+      text,
       metadata: {
         pageCount: data.numpages,
       },

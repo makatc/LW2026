@@ -63,16 +63,16 @@ export class DashboardController {
         dh.id,
         dh.hit_type as type,
         dh.measure_id as "measureId",
-        dh.matched_text as "matchedText",
-        dh.keyword,
+        dh.evidence as "matchedText",
+        dh.evidence as keyword,
         dh.created_at as "createdAt",
         m.numero,
         m.titulo,
-        m.estado,
-        m.fecha_ingreso as "fechaIngreso"
+        null as estado,
+        m.fecha as "fechaIngreso"
       FROM discovery_hits dh
       JOIN monitor_configs mc ON dh.config_id = mc.id
-      JOIN measures m ON dh.measure_id = m.id
+      JOIN sutra_measures m ON dh.measure_id = m.id
       WHERE mc.user_id = $1 
         AND dh.hit_type IN ('KEYWORD', 'TOPIC')
       ORDER BY dh.created_at DESC
@@ -109,16 +109,16 @@ export class DashboardController {
         wi.id,
         wi.measure_id as "measureId",
         wi.measure_number as "measureNumber",
-        wi.updated_at as "updatedAt",
+        wi.created_at as "updatedAt",
         m.numero,
         m.titulo,
-        m.estado,
-        m.fecha_ingreso as "fechaIngreso"
+        null as estado,
+        m.fecha as "fechaIngreso"
       FROM watchlist_items wi
       JOIN monitor_configs mc ON wi.config_id = mc.id
-      LEFT JOIN measures m ON wi.measure_id = m.id
+      LEFT JOIN sutra_measures m ON wi.measure_id = m.id
       WHERE mc.user_id = $1 AND wi.enabled = true
-      ORDER BY wi.updated_at DESC
+      ORDER BY wi.created_at DESC
       LIMIT $2
     `, [userId, limitNum]);
 
@@ -149,15 +149,15 @@ export class DashboardController {
       SELECT 
         dh.id,
         dh.measure_id as "measureId",
-        dh.matched_text as "commissionName",
+        dh.evidence as "commissionName",
         dh.created_at as "createdAt",
         m.numero,
         m.titulo,
-        m.estado,
-        m.fecha_ingreso as "fechaIngreso"
+        null as estado,
+        m.fecha as "fechaIngreso"
       FROM discovery_hits dh
       JOIN monitor_configs mc ON dh.config_id = mc.id
-      JOIN measures m ON dh.measure_id = m.id
+      JOIN sutra_measures m ON dh.measure_id = m.id
       WHERE mc.user_id = $1 AND dh.hit_type = 'COMMISSION'
       ORDER BY dh.created_at DESC
       LIMIT $2

@@ -1,6 +1,7 @@
 {
     "collection": "@nestjs/schematics",
     "sourceRoot": "src",
+    "entryFile": "apps/sutra-monitor/src/main",
     "compilerOptions": {
         "deleteOutDir": true,
         "webpack": false,

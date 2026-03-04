@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Upload, FileText, Search, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
-const COMPARATOR_API = process.env.NEXT_PUBLIC_COMPARATOR_API || 'http://localhost:3002';
+const COMPARATOR_API = '/api/comparator';
 
 type UploadedDoc = {
   documentId: string;
