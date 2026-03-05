@@ -1,323 +1,179 @@
-# 📊 Análisis de Capacidades del Comparador - LegalWatch
+# Análisis de Capacidades — LegalWatch Comparador
 
-## 🎯 Tecnologías y Procesos Implementados
+Estado actual del comparador (Marzo 2026). Implementado como MVP funcional completo.
 
-### 1️⃣ **Module A: Dashboard Integration**
-**Capacidad:** Importar leyes desde fuentes externas
+---
 
-**Tecnologías:**
+## Módulo A: Dashboard Integration
+
+**Capacidad:** Importar leyes desde fuentes externas.
+
 - Strategy Pattern (Mock/HTTP Connectors)
-- SHA256 Deduplication
+- SHA256 deduplication
 - SourceSnapshot tracking
 
-**Lo que puede hacer:**
-- ✅ Importar leyes desde API externa
-- ✅ Guardar metadata de leyes
-- ✅ Detectar duplicados automáticamente
+**Estado:**
+- ✅ Importar desde API externa (`connectorType: "http"`)
+- ✅ Mock para desarrollo (`connectorType: "mock"`)
+- ✅ Deduplicación automática por SHA256
 - ✅ Tracking de múltiples versiones
 
 **Endpoint:** `POST /import/dashboard`
 
 ---
 
-### 2️⃣ **Module B: Documents & Ingestion**
-**Capacidad:** Procesar documentos y detectar estructura legal
+## Módulo B: Documents & Ingestion
 
-**Tecnologías:**
+**Capacidad:** Procesar archivos y detectar estructura legal.
+
 - BullMQ (async job processing)
-- Regex Pattern Matching (estructuras legales españolas)
-- Text Normalization (limpieza de PDF artifacts)
+- pdf-parse + mammoth para extracción de texto
+- **Gemini 2.0 Flash** como OCR fallback para PDFs escaneados
+- Regex para detección de estructura legal en español
+- Normalización de texto (artefactos de PDF, headers, footers)
 
-**Lo que puede hacer:**
-- ✅ Procesar documentos async (no bloquea UI)
-- ✅ Detectar estructura automática:
-  - ARTÍCULO / Art.
-  - CAPÍTULO
-  - SECCIÓN
-  - PÁRRAFO
-- ✅ Normalizar texto (eliminar headers/footers/page numbers)
-- ✅ Dividir en chunks estructurales
-- ✅ Job status tracking en tiempo real
+**Estado:**
+- ✅ Upload directo de PDF y DOCX (`POST /documents/upload`)
+- ✅ OCR automático vía Gemini para PDFs escaneados (requiere `GEMINI_API_KEY`)
+- ✅ Procesamiento asíncrono con BullMQ (no bloquea la UI)
+- ✅ Detección de estructura: ARTÍCULO, CAPÍTULO, SECCIÓN, PÁRRAFO
+- ✅ Normalización de texto
+- ✅ División en chunks estructurales
+- ✅ Job status tracking (polling)
 
 **Endpoints:**
-- `POST /documents/ingest` - Queue processing job
-- `GET /documents/jobs/:jobId` - Check job status
-- `GET /documents/:documentId` - Get document
-- `GET /documents/:documentId/versions` - List versions
+- `POST /documents/upload` — Upload multipart de archivo
+- `POST /documents/ingest` — Encolar procesamiento de snapshot
+- `GET /documents/jobs/:jobId` — Estado del job
+- `GET /documents/:documentId` — Detalle del documento
+- `GET /documents/:documentId/versions` — Versiones
 
 ---
 
-### 3️⃣ **Module D: Compare Engine**
-**Capacidad:** Comparar versiones y detectar cambios
+## Módulo D: Compare Engine
 
-**Tecnologías:**
-- Google's diff-match-patch (character-level diffs)
-- Semantic Change Detection (12 tipos)
-- BullMQ (async comparison jobs)
-- Chunk alignment algorithms
+**Capacidad:** Comparar versiones, generar diffs, detectar cambios semánticos.
 
-**Lo que puede hacer:**
-- ✅ Generar diffs HTML con `<ins>` y `<del>` tags
-- ✅ Side-by-side comparison view
-- ✅ Similarity scoring (0-100%)
-- ✅ Detectar 12 tipos de cambios semánticos:
-  1. **OBLIGATION_SHIFT** - "deberá" → "podrá"
-  2. **SANCTION_CHANGED** - Cambios en multas/penas
-  3. **DEFINITION_MODIFIED** - Cambios en definiciones
-  4. **SCOPE_EXPANSION** - Ampliación de alcance
-  5. **SCOPE_REDUCTION** - Reducción de alcance
-  6. **TEMPORAL_CHANGE** - Cambios en plazos/fechas
-  7. **QUANTITATIVE_CHANGE** - Cambios numéricos
-  8. **ENTITY_AFFECTED** - Cambios en entidades afectadas
-  9. **REQUIREMENT_ADDED** - Nuevos requisitos
-  10. **REQUIREMENT_REMOVED** - Requisitos eliminados
-  11. **PROCEDURAL_CHANGE** - Cambios en procedimientos
-  12. **OTHER** - Otros cambios
-- ✅ Impact scoring (weighted by semantic type)
-- ✅ Chunk-by-chunk comparison
-- ✅ Alignment map (qué chunk cambió a qué)
+- Google's diff-match-patch (diffs carácter a carácter)
+- Generación de HTML unificado (Redline) Y HTML lado a lado (side-by-side)
+- Detección semántica de 12 tipos de cambios
+- BullMQ para jobs asincrónicos
+- Scoring de impacto ponderado por tipo
+
+**Estado:**
+- ✅ Diff HTML unificado con `<ins>` / `<del>`
+- ✅ Diff lado a lado (`sourceSideHtml` + `targetSideHtml`) — sincronizado en frontend
+- ✅ Similarity scoring (0–100%)
+- ✅ Detección de 12 tipos de cambios semánticos (ver lista abajo)
+- ✅ Impact score ponderado por categoría
+- ✅ Comparación chunk a chunk con alignment map
+- ✅ Fetch de versiones con datos de documento (títulos)
+
+**12 tipos de cambios semánticos:**
+1. `OBLIGATION_SHIFT` — "deberá" → "podrá"
+2. `SANCTION_CHANGED` — cambios en multas/penas
+3. `DEFINITION_MODIFIED` — cambios en definiciones
+4. `SCOPE_EXPANSION` — ampliación de alcance
+5. `SCOPE_REDUCTION` — reducción de alcance
+6. `TEMPORAL_CHANGE` — cambios en plazos/fechas
+7. `QUANTITATIVE_CHANGE` — cambios numéricos
+8. `ENTITY_AFFECTED` — cambios en entidades afectadas
+9. `REQUIREMENT_ADDED` — nuevos requisitos
+10. `REQUIREMENT_REMOVED` — requisitos eliminados
+11. `PROCEDURAL_CHANGE` — cambios en procedimientos
+12. `OTHER` — otros cambios
 
 **Endpoints:**
-- `POST /comparison/compare` - Queue comparison job
-- `GET /comparison/jobs/:jobId` - Check job status
-- `GET /comparison/results/:comparisonId` - Get comparison result
+- `POST /comparison/compare` — Encolar job de comparación
+- `GET /comparison/jobs/:jobId` — Estado del job
+- `GET /comparison/results/:comparisonId` — Resultado con diffs y cambios semánticos
 
 ---
 
-### 4️⃣ **Module E: Reports**
-**Capacidad:** Exportar y visualizar resultados
+## Módulo E: Reports + LLM Analysis
 
-**Tecnologías:**
-- Enriched summaries with metadata
-- PDF export (mock - ready for implementation)
+**Capacidad:** Resúmenes con IA y exportación de resultados.
 
-**Lo que puede hacer:**
-- ✅ Generar resumen ejecutivo
-- ✅ Incluir metadata de documentos
-- ✅ Listar todos los cambios por chunk
-- ✅ Mostrar impact score total
-- ✅ Export to PDF (pendiente implementación real)
+- **Groq API** (llama-3.1-8b-instant) para resumen ejecutivo y análisis de impacto
+- Análisis de stakeholders guardado en `metadata` JSONB
+- Fallback automático a stubs si no hay `GROQ_API_KEY`
+
+**Estado:**
+- ✅ Resumen ejecutivo generado por IA (Groq)
+- ✅ Análisis de stakeholders: entidades afectadas, direccionalidad, proyección temporal
+- ✅ ProjectSummary con metadata enriquecida
+- ✅ Export PDF (mock — respuesta estructurada, sin generación real de PDF)
+- ⏳ Generación real de PDF (pendiente)
 
 **Endpoints:**
-- `GET /projects/:comparisonId/summary` - Get enriched summary
-- `GET /projects/:comparisonId/export` - Export to PDF (mock)
-- `GET /projects/:comparisonId/result` - Get raw result
+- `GET /projects/:comparisonId/summary` — Resumen enriquecido con IA
+- `GET /projects/:comparisonId/export` — Export PDF (mock)
+- `GET /projects/:comparisonId/result` — Resultado crudo
 
 ---
 
-## 🔄 Flujo Completo Actual
+## Frontend — DiffViewerPanel y ImpactAnalysisPanel
+
+### DiffViewerPanel (`src/components/comparator/DiffViewerPanel.tsx`)
+- Toggle **Redline** (diff unificado) / **Lado a Lado** (side-by-side)
+- Scroll sincronizado entre paneles izquierdo y derecho
+- Búsqueda integrada con highlight en tiempo real en ambos paneles
+- Chunks colapsables con etiquetas de tipo de cambio y color coding
+- Botón "Ver más" para mostrar todos los chunks (10 por defecto)
+
+### ImpactAnalysisPanel (`src/components/comparator/ImpactAnalysisPanel.tsx`)
+- Tarjetas por entidad agrupadas por tipo (agencia, corporación, grupo demográfico, etc.)
+- Indicadores de impacto: positivo / restrictivo / neutro / mixto
+- Proyección temporal expandible (corto / mediano / largo plazo)
+- Banner de impacto general con resumen
+
+### Página del Comparador (`src/app/(dashboard)/comparator/page.tsx`)
+- Labels: "Ley Vigente" (source) / "Propuesta" (target)
+- Envía `detectSemanticChanges: true` al backend
+- 3 tabs de resultados: **Resumen Ejecutivo** | **Cambios Detectados** | **Análisis de Impacto**
+- Stats: impact score, secciones cambiadas, expansiones, cambios críticos
+- Polling automático de jobs hasta completar o fallar
+
+---
+
+## Flujo completo
 
 ```
-1. IMPORT
+1. UPLOAD
    ↓
-   Usuario/API → POST /import/dashboard
-   ↓
-   Se crea SourceSnapshot + Document + DocumentVersions
+   POST /documents/upload (PDF/DOCX)
+   → Extrae texto (pdf-parse / mammoth / OCR Gemini)
+   → Crea Document + DocumentVersion + SourceSnapshot
 
 2. INGEST
    ↓
-   POST /documents/ingest
-   ↓
    BullMQ Job: Normalizar → Detectar Estructura → Crear Chunks
-   ↓
-   GET /documents/jobs/:id (polling para status)
+   → Polling GET /documents/jobs/:id
 
 3. COMPARE
    ↓
-   POST /comparison/compare (source + target version IDs)
-   ↓
-   BullMQ Job: Alinear chunks → Generar diffs → Detectar cambios semánticos
-   ↓
-   GET /comparison/jobs/:id (polling para status)
+   POST /comparison/compare { sourceVersionId, targetVersionId, detectSemanticChanges: true }
+   → BullMQ Job:
+     - Alinear chunks
+     - Generar diffHtml + sourceSideHtml + targetSideHtml
+     - Detectar 12 tipos de cambios semánticos
+     - Llamar a Groq: resumen ejecutivo + stakeholder analysis
+   → Polling GET /comparison/jobs/:id
 
 4. REPORT
    ↓
    GET /projects/:comparisonId/summary
-   ↓
-   Muestra: diffs HTML + cambios semánticos + impact score
+   → Retorna: diffs + cambios semánticos + impact score + aiSummary + stakeholderAnalysis
 ```
 
 ---
 
-## 🎨 Requisitos del Frontend (según user)
+## Pendiente
 
-### Funcionalidades Requeridas:
-
-#### 1. **Upload de Múltiples Formatos**
-- ✅ Word (.doc, .docx)
-- ✅ PDF (.pdf)
-- ✅ Text (.txt)
-- ✅ Otros formatos de texto
-
-**Backend actual:** ❌ No soporta upload directo de archivos
-**Solución:** Implementar endpoint `POST /documents/upload` que:
-- Acepte multipart/form-data
-- Extraiga texto de Word/PDF usando librerías
-- Llame internamente a `/import/dashboard` o cree directamente el documento
-
-#### 2. **Comparación de Documentos**
-- Documento subido vs Documento subido
-- Documento subido vs Ley del dashboard
-- Enmienda vs Ley original (auto-detect)
-
-**Backend actual:** ✅ Soporta comparación de versiones existentes
-**Gap:** Necesita upload de archivos primero
-
-#### 3. **Integración con Dashboard**
-- Botón "Comparar" en cada medida/proyecto
-- Arrastrar medidas al comparador (drag & drop)
-- Buscar ley original si es enmienda
-
-**Backend actual:** ✅ Ya tiene importación de dashboard
-**Gap:** Necesita endpoints para buscar leyes relacionadas
-
-#### 4. **Calendario** (futuro app)
-- Botón "Añadir Calendario" en medidas
-- Guardar eventos de vistas/fechas importantes
-
-**Backend actual:** ❌ No existe
-**Solución:** Próxima fase (no parte de este task)
-
----
-
-## 📐 Arquitectura del Frontend Propuesta
-
-### Estructura de Componentes:
-
-```
-ComparatorPage/
-├── Header (título + descripción)
-├── SourceSelector
-│   ├── UploadTab
-│   │   └── FileUploader (drag & drop + click)
-│   └── DashboardTab
-│       ├── SearchBox (buscar leyes)
-│       ├── WatchlistPicker
-│       └── ProjectPicker
-├── TargetSelector (mismo que SourceSelector)
-├── ComparisonConfig
-│   ├── ComparisonMode (full/chunks/semantic)
-│   ├── SemanticFilters (qué tipos de cambios mostrar)
-│   └── AdvancedOptions
-├── ActionBar
-│   ├── CompareButton
-│   ├── SaveButton
-│   └── ExportButton
-├── ResultsPanel
-│   ├── SummaryCard (impact score, total changes)
-│   ├── SemanticChangesPanel (agrupado por tipo)
-│   ├── DiffViewer
-│   │   ├── SideBySide mode
-│   │   └── Inline mode
-│   └── ChunkNavigator (navegar por chunks)
-└── JobStatusModal (polling de jobs async)
-```
-
----
-
-## 🎯 Gaps a Implementar en Backend
-
-### Alta Prioridad:
-1. **File Upload Endpoint**
-   - `POST /documents/upload`
-   - Acepta: multipart/form-data
-   - Procesa: Word, PDF, TXT
-   - Devuelve: documentId
-
-2. **Search Endpoint**
-   - `GET /documents/search?q=ley+organica`
-   - Busca en títulos y metadata
-   - Devuelve: lista de documentos
-
-3. **Related Laws Endpoint**
-   - `GET /documents/:id/related`
-   - Detecta si es enmienda y busca ley original
-   - Devuelve: ley relacionada
-
-### Media Prioridad:
-4. **Quick Compare Endpoint**
-   - `POST /comparison/quick`
-   - Acepta: raw text (sin necesidad de ingest previo)
-   - Útil para comparaciones rápidas
-
-5. **WebSocket/SSE para Job Status**
-   - Reemplazar polling con real-time updates
-
----
-
-## 📋 Plan de Implementación por Fases
-
-### **FASE 1:** Análisis y Setup ✅ (ESTA FASE)
-- Análisis de capacidades
-- Diseño de arquitectura
-- Identificación de gaps
-
-### **FASE 2:** Backend - File Upload & Search
-- Implementar upload endpoint
-- Implementar search endpoint
-- Integrar librerías de parsing (PDF, Word)
-
-### **FASE 3:** Frontend - Source/Target Selectors
-- Componente FileUploader
-- Componente DashboardPicker
-- Integración con backend
-
-### **FASE 4:** Frontend - Comparison & Results
-- ResultsPanel con diffs
-- Semantic changes visualization
-- Export functionality
-
-### **FASE 5:** Integración con Dashboard
-- Botón "Comparar" en medidas
-- Drag & drop desde watchlist
-- Link directo a comparador
-
----
-
-## 🎨 Diseño UI/UX Propuesto
-
-### Paleta de Colores (semántica):
-```css
-/* Cambios Semánticos */
---obligation-shift: #EF4444 (rojo)
---sanction-changed: #F59E0B (amarillo)
---definition-modified: #8B5CF6 (morado)
---scope-expansion: #10B981 (verde)
---scope-reduction: #F97316 (naranja)
---temporal-change: #3B82F6 (azul)
---requirement-added: #059669 (verde oscuro)
---requirement-removed: #DC2626 (rojo oscuro)
-
-/* Diff Colors */
---added: #D1FAE5 (verde claro)
---removed: #FEE2E2 (rojo claro)
---unchanged: #F3F4F6 (gris claro)
-```
-
-### Layout:
-- **Desktop:** 3 columnas (Source | Actions | Target)
-- **Mobile:** Stack vertical con tabs
-- **Results:** Full width con side-by-side diff
-
----
-
-## 📊 Métricas que Puede Generar:
-
-1. **Impact Score** (0-100)
-2. **Similarity Percentage** (0-100%)
-3. **Total Changes Count**
-4. **Changes by Semantic Type** (breakdown)
-5. **Chunks Modified** (%)
-6. **Longest Unchanged Section**
-7. **Most Impactful Change**
-
----
-
-## 🚀 Próximos Pasos
-
-¿Deseas que proceda con:
-- **FASE 2:** Implementar backend (upload, search, related laws)?
-- **FASE 3:** Implementar frontend (selectors y UI)?
-- **Ambas en paralelo?**
-
-Confirma para continuar con la siguiente fase! 🎯
+- [ ] Exportación real a PDF (actualmente mock)
+- [ ] Tab "Comparar por texto pegado" en el frontend
+- [ ] Migración formal de BD para `aiSummary` / `stakeholderAnalysis` (hoy en `metadata` JSONB)
+- [ ] WebSocket/SSE para job status (reemplazar polling)
+- [ ] Endpoint `GET /documents/:id/related` para leyes relacionadas
+- [ ] Swagger/OpenAPI documentation
+- [ ] Integración con embeddings pgvector para búsqueda semántica

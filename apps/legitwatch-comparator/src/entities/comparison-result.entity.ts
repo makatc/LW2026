@@ -39,7 +39,10 @@ export class ComparisonResult {
   chunkComparisons!: Array<{
     sourceChunkId: string;
     targetChunkId: string;
+    label?: string;
     diffHtml: string;
+    sourceSideHtml?: string;
+    targetSideHtml?: string;
     changeType?: string;
     impactScore?: number;
   }>;

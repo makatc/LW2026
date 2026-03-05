@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,6 +6,9 @@ import { Queue, QueueEvents } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { ComparisonResult } from '../../entities';
 import type { ComparisonJobData, ComparisonJobResult } from '../dto';
+import { DiffService } from './diff.service';
+
+const QUICK_COMPARE_MAX_CHARS = 50_000;
 
 export interface ComparisonJobStatusInfo {
   jobId: string;
@@ -30,6 +33,7 @@ export class ComparisonService {
     @InjectRepository(ComparisonResult)
     private readonly comparisonRepository: Repository<ComparisonResult>,
     private readonly configService: ConfigService,
+    private readonly diffService: DiffService,
   ) {
     this.queueEvents = new QueueEvents('comparison-queue', {
       connection: {
@@ -198,6 +202,55 @@ export class ComparisonService {
       completed: counts.completed || 0,
       failed: counts.failed || 0,
       delayed: counts.delayed || 0,
+    };
+  }
+
+  /**
+   * Synchronous text-to-text comparison (no queue, no DB).
+   * Validates 50,000 character limit and returns diff HTML + line stats immediately.
+   * Uses `diff` + `diff2html` for line-level unified diff rendering.
+   */
+  quickCompare(
+    textA: string,
+    textB: string,
+  ): {
+    diffHtml: string;
+    sourceSideHtml: string;
+    targetSideHtml: string;
+    stats: {
+      linesAdded: number;
+      linesDeleted: number;
+      linesUnchanged: number;
+      changePercentage: number;
+    };
+  } {
+    if (textA.length > QUICK_COMPARE_MAX_CHARS || textB.length > QUICK_COMPARE_MAX_CHARS) {
+      throw new BadRequestException(
+        'El documento supera el límite de 50,000 caracteres',
+      );
+    }
+
+    // Line-level diff HTML using diff + diff2html
+    const diffHtml = this.diffService.generateDiffHtml(textA, textB);
+    // Line-level statistics using diff
+    const lineStats = this.diffService.analyzeDiff(textA, textB);
+    // Side-by-side panels still use diff-match-patch (character-level markup)
+    const sideBySide = this.diffService.generateSideBySideDiff(textA, textB);
+
+    const totalChanged = lineStats.linesAdded + lineStats.linesDeleted;
+    const totalLines = lineStats.linesUnchanged + Math.max(lineStats.linesAdded, lineStats.linesDeleted);
+    const changePercentage = totalLines > 0
+      ? Math.round((totalChanged / totalLines) * 10000) / 100
+      : 0;
+
+    return {
+      diffHtml,
+      sourceSideHtml: sideBySide.oldHtml,
+      targetSideHtml: sideBySide.newHtml,
+      stats: {
+        ...lineStats,
+        changePercentage,
+      },
     };
   }
 }

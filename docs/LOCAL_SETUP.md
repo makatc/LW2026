@@ -105,7 +105,7 @@ SUTRA_DB_NAME=sutra_monitor
 
 # Redis (Shared)
 REDIS_HOST=localhost
-REDIS_PORT=6379
+REDIS_PORT=6380
 
 # === New Comparador Config ===
 COMPARADOR_PORT=3002
@@ -141,7 +141,7 @@ DB_NAME=legitwatch_comparator
 
 # Redis (shared)
 REDIS_HOST=localhost
-REDIS_PORT=6379
+REDIS_PORT=6380
 
 # Application
 NODE_ENV=development
@@ -456,7 +456,7 @@ services:
         │                                       │
    ┌────▼─────┐                          ┌─────▼─────┐
    │PostgreSQL│                          │   Redis   │
-   │  Port:   │                          │ Port: 6379│
+   │  Port:   │                          │ Port: 6380│
    │  5433    │                          └───────────┘
    ├──────────┤
    │ Databases│
@@ -554,11 +554,11 @@ docker-compose restart redis
 ### Problema: BullMQ jobs no se procesan
 ```bash
 # Verificar que Redis está accesible
-redis-cli -h localhost -p 6379 ping
+redis-cli -h localhost -p 6380 ping
 # Expected: PONG
 
 # Ver las queues en Redis
-redis-cli -h localhost -p 6379 KEYS "bull:*"
+redis-cli -h localhost -p 6380 KEYS "bull:*"
 
 # Reiniciar el comparador
 cd apps/legitwatch-comparator && npm run start:dev

@@ -42,7 +42,10 @@
     "bullmq": "^5.67.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
+    "diff": "^4.0.4",
+    "diff2html": "^3.4.56",
     "diff-match-patch": "^1.0.5",
+    "diff2html": "^3.4.56",
     "dotenv": "^17.2.4",
     "ioredis": "^5.9.2",
     "mammoth": "^1.11.0",
@@ -58,6 +61,7 @@
     "typeorm": "^0.3.28"
   },
   "devDependencies": {
+    "@types/diff": "^6.0.0",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",

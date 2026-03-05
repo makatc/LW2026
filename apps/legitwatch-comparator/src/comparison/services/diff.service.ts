@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import DiffMatchPatch = require('diff-match-patch');
+import * as Diff from 'diff';
+import { html as diff2htmlHtml } from 'diff2html';
 
 export interface DiffResult {
   htmlDiff: string;
@@ -7,6 +9,12 @@ export interface DiffResult {
   deletedChars: number;
   unchangedChars: number;
   changePercentage: number;
+}
+
+export interface LineDiffStats {
+  linesAdded: number;
+  linesDeleted: number;
+  linesUnchanged: number;
 }
 
 /**
@@ -132,6 +140,35 @@ export class DiffService {
   }
 
   /**
+   * Analyze line-level diff statistics between two texts
+   * Returns count of added, deleted, and unchanged lines
+   */
+  analyzeLineDiff(
+    textA: string,
+    textB: string,
+  ): { linesAdded: number; linesDeleted: number; linesUnchanged: number } {
+    // Use diff-match-patch linesToChars encoding for line-level diffing
+    const a = (this.dmp as any).diff_linesToChars_(textA, textB);
+    const diffs = this.dmp.diff_main(a.chars1, a.chars2, false);
+    (this.dmp as any).diff_charsToLines_(diffs, a.lineArray);
+
+    let linesAdded = 0;
+    let linesDeleted = 0;
+    let linesUnchanged = 0;
+
+    for (const [op, text] of diffs) {
+      const lineCount = (text as string)
+        .split('\n')
+        .filter((l: string) => l.length > 0).length;
+      if (op === DiffMatchPatch.DIFF_INSERT) linesAdded += lineCount;
+      else if (op === DiffMatchPatch.DIFF_DELETE) linesDeleted += lineCount;
+      else linesUnchanged += lineCount;
+    }
+
+    return { linesAdded, linesDeleted, linesUnchanged };
+  }
+
+  /**
    * Calculate similarity percentage between two strings
    * @param text1 First text
    * @param text2 Second text
@@ -149,6 +186,48 @@ export class DiffService {
 
     const similarity = ((1 - levenshtein / maxLength) * 100);
     return Math.round(similarity * 100) / 100;
+  }
+
+  /**
+   * Generate unified diff HTML using `diff` + `diff2html` (line-level).
+   * This produces a block-based diff view similar to GitHub's file diffs.
+   */
+  generateDiffHtml(textA: string, textB: string): string {
+    const patch = Diff.createTwoFilesPatch(
+      'Documento A',
+      'Documento B',
+      textA,
+      textB,
+      '',
+      '',
+      { context: 3 },
+    );
+
+    return diff2htmlHtml(patch, {
+      drawFileList: false,
+      matching: 'lines',
+      outputFormat: 'line-by-line',
+    });
+  }
+
+  /**
+   * Analyze line-level diff statistics between two texts using `diff`.
+   * Returns count of added, deleted and unchanged lines.
+   */
+  analyzeDiff(textA: string, textB: string): LineDiffStats {
+    const changes = Diff.diffLines(textA, textB);
+    let linesAdded = 0;
+    let linesDeleted = 0;
+    let linesUnchanged = 0;
+
+    for (const part of changes) {
+      const count = part.count ?? 0;
+      if (part.added) linesAdded += count;
+      else if (part.removed) linesDeleted += count;
+      else linesUnchanged += count;
+    }
+
+    return { linesAdded, linesDeleted, linesUnchanged };
   }
 
   /**

@@ -54,6 +54,9 @@ export class UploadService {
       description?: string;
     } = {},
   ): Promise<UploadResult> {
+    if (!file) {
+      throw new Error('No file received. Make sure the form field is named "file".');
+    }
     this.logger.log(`Processing uploaded file: ${file.originalname}`);
 
     // Validate file
@@ -94,22 +97,56 @@ export class UploadService {
 
     if (existingSnapshot) {
       this.logger.log(
-        `Snapshot with same hash already exists: ${existingSnapshot.id}, returning existing record`,
+        `Snapshot with same hash already exists: ${existingSnapshot.id}, checking version status`,
       );
       // Find the existing version and document linked to this snapshot
-      const existingVersion = await this.versionRepo.findOne({
-        where: { metadata: { snapshotId: existingSnapshot.id } as any },
-      });
+      const existingVersion = await this.versionRepo
+        .createQueryBuilder('v')
+        .where("v.metadata->>'snapshotId' = :snapshotId", { snapshotId: existingSnapshot.id })
+        .getOne();
       const existingDocument = existingVersion
         ? await this.documentRepo.findOne({ where: { id: existingVersion.documentId } })
         : null;
+
+      // If the version is READY return it immediately (cache hit)
+      if (existingVersion?.status === DocumentVersionStatus.READY) {
+        this.logger.log(`Returning cached READY version: ${existingVersion.id}`);
+        return {
+          success: true,
+          documentId: existingDocument?.id ?? '',
+          versionId: existingVersion.id,
+          snapshotId: existingSnapshot.id,
+          message: `File already uploaded previously: ${file.originalname}`,
+          metadata: {
+            fileName: file.originalname,
+            fileSize: file.size,
+            wordCount: parsed.metadata.wordCount,
+            pageCount: parsed.metadata.pageCount,
+          },
+        };
+      }
+
+      // Version is PROCESSING or ERROR (stuck/failed) — re-queue ingestion so it can finish
+      this.logger.warn(
+        `Existing version ${existingVersion?.id ?? 'none'} status is ${existingVersion?.status ?? 'missing'} — re-queuing ingestion for snapshot ${existingSnapshot.id}`,
+      );
+
+      // Reset version status to PROCESSING if it was ERROR
+      if (existingVersion && existingVersion.status === DocumentVersionStatus.ERROR) {
+        existingVersion.status = DocumentVersionStatus.PROCESSING;
+        await this.versionRepo.save(existingVersion);
+      }
+
+      if (options.autoIngest !== false) {
+        await this.ingestionService.queueIngestion(existingSnapshot.id);
+      }
 
       return {
         success: true,
         documentId: existingDocument?.id ?? '',
         versionId: existingVersion?.id ?? '',
         snapshotId: existingSnapshot.id,
-        message: `File already uploaded previously: ${file.originalname}`,
+        message: `Re-queued ingestion for: ${file.originalname}`,
         metadata: {
           fileName: file.originalname,
           fileSize: file.size,

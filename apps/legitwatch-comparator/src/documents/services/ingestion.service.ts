@@ -1,7 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Queue, QueueEvents } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
+import { DocumentVersion, DocumentVersionStatus } from '../../entities';
 import type { IngestionJobData, IngestionJobResult } from '../dto';
 
 export interface JobStatusInfo {
@@ -26,6 +29,8 @@ export class IngestionService {
     @InjectQueue('ingestion-queue')
     private readonly ingestionQueue: Queue<IngestionJobData, IngestionJobResult>,
     private readonly configService: ConfigService,
+    @InjectRepository(DocumentVersion)
+    private readonly versionRepository: Repository<DocumentVersion>,
   ) {
     // Create QueueEvents for listening to job completion
     this.queueEvents = new QueueEvents('ingestion-queue', {
@@ -182,5 +187,20 @@ export class IngestionService {
   async clearQueue(): Promise<void> {
     await this.ingestionQueue.obliterate();
     this.logger.warn('Ingestion queue cleared');
+  }
+
+  /**
+   * Get the processing status of a specific document version
+   * @param versionId DocumentVersion UUID
+   * @returns status and versionId
+   */
+  async getVersionStatus(
+    versionId: string,
+  ): Promise<{ versionId: string; status: DocumentVersionStatus }> {
+    const version = await this.versionRepository.findOne({ where: { id: versionId } });
+    if (!version) {
+      throw new NotFoundException(`Version ${versionId} not found`);
+    }
+    return { versionId, status: version.status };
   }
 }

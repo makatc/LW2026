@@ -1,173 +1,131 @@
-# Environment Variables
+# Variables de Entorno — LWBETA
 
-This document describes all environment variables used across the SUTRA Monitor system.
+Variables de entorno usadas en cada app del monorepo.
 
-## Backend (`apps/sutra-monitor`)
+---
 
-### Database
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | - | PostgreSQL connection string |
+## Comparador (`apps/legitwatch-comparator/.env`)
 
-**Example:**
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5433/sutra_monitor
-```
-
-### Redis
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `REDIS_URL` | No | `redis://localhost:6379` | Redis connection string for BullMQ |
-
-**Example:**
-```env
-REDIS_URL=redis://localhost:6379
-```
-
-### Server
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PORT` | No | `3001` | HTTP server port |
-| `NODE_ENV` | No | `development` | Environment mode |
-
-**Example:**
-```env
-PORT=3001
-NODE_ENV=production
-```
-
-### Scraping (Optional)
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `SCRAPER_HEADLESS` | No | `true` | Run Playwright in headless mode |
-| `SCRAPER_TIMEOUT` | No | `30000` | Page load timeout (ms) |
-| `SCRAPER_DELAY` | No | `1000` | Politeness delay between requests (ms) |
-
-**Example:**
-```env
-SCRAPER_HEADLESS=true
-SCRAPER_TIMEOUT=30000
-SCRAPER_DELAY=1000
-```
-
-## Frontend (`apps/sutra-dashboard`)
-
-### API
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `NEXT_PUBLIC_API_URL` | Yes | - | Backend API base URL |
-
-**Example:**
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
-```
-
-**Note:** Variables prefixed with `NEXT_PUBLIC_` are exposed to the browser.
-
-### Next.js
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `PORT` | No | `3000` | Development server port |
-
-## Database Package (`packages/db`)
-
-### Migrations
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | - | PostgreSQL connection string for migrations |
-
-**Example:**
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5433/sutra_monitor
-```
-
-## Docker Compose
-
-The `docker-compose.yml` file defines:
-
-### PostgreSQL
-- **Port:** 5433 (host) → 5432 (container)
-- **Database:** `sutra_monitor`
-- **User:** `postgres`
-- **Password:** `password`
-- **Volume:** `postgres_data`
+### Base de datos
+| Variable | Requerida | Valor por defecto | Descripción |
+|----------|-----------|-------------------|-------------|
+| `DB_HOST` | Sí | `localhost` | Host de PostgreSQL |
+| `DB_PORT` | Sí | `5433` | Puerto **host** de Docker (container usa 5432) |
+| `DB_USERNAME` | Sí | `postgres` | Usuario de PostgreSQL |
+| `DB_PASSWORD` | Sí | `password` | Contraseña |
+| `DB_NAME` | Sí | `legitwatch_comparator` | Base de datos |
 
 ### Redis
-- **Port:** 6379 (host) → 6379 (container)
-- **No persistence** (in-memory only)
+| Variable | Requerida | Valor por defecto | Descripción |
+|----------|-----------|-------------------|-------------|
+| `REDIS_HOST` | Sí | `localhost` | Host de Redis |
+| `REDIS_PORT` | Sí | `6380` | Puerto **host** de Docker (container usa 6379) |
 
-## Production Considerations
+### Aplicación
+| Variable | Requerida | Valor por defecto | Descripción |
+|----------|-----------|-------------------|-------------|
+| `PORT` | No | `3002` | Puerto HTTP del comparador |
+| `NODE_ENV` | No | `development` | Entorno |
 
-### Security
-1. **Never commit `.env` files** - Use `.env.example` as template
-2. **Use strong passwords** - Change default PostgreSQL password
-3. **Restrict database access** - Use firewall rules
-4. **Use HTTPS** - Configure reverse proxy (nginx, Caddy)
+### LLM (opcionales — funciona con stubs si no están)
+| Variable | Requerida | Descripción | Dónde obtener |
+|----------|-----------|-------------|---------------|
+| `GROQ_API_KEY` | No | Resumen ejecutivo + análisis de impacto por partes (llama-3.1-8b-instant) | https://console.groq.com/keys |
+| `GEMINI_API_KEY` | No | OCR de PDFs escaneados sin texto (gemini-2.0-flash) | https://aistudio.google.com/apikey |
 
-### Secrets Management
-For production, use:
-- **Docker Secrets** (Docker Swarm)
-- **Kubernetes Secrets** (K8s)
-- **AWS Secrets Manager** (AWS)
-- **Azure Key Vault** (Azure)
-- **Environment variables** from hosting platform
+### Integración con Dashboard
+| Variable | Requerida | Valor por defecto | Descripción |
+|----------|-----------|-------------------|-------------|
+| `DASHBOARD_CONNECTOR_MODE` | No | `mock` | `mock` o `http` |
+| `DASHBOARD_API_URL` | No | `http://localhost:3001` | URL del Monitor API |
+| `DASHBOARD_API_KEY` | No | — | API key si el Monitor requiere autenticación |
+| `DASHBOARD_API_TIMEOUT` | No | `30000` | Timeout en ms |
+| `DASHBOARD_API_MAX_RETRIES` | No | `3` | Reintentos en caso de fallo |
 
-### Example Production Setup
-
-**Backend:**
+**Ejemplo `.env` completo:**
 ```env
-DATABASE_URL=postgresql://prod_user:STRONG_PASSWORD@db.example.com:5432/sutra_monitor?sslmode=require
-REDIS_URL=redis://:REDIS_PASSWORD@redis.example.com:6379
-PORT=3001
-NODE_ENV=production
-SCRAPER_HEADLESS=true
+DB_HOST=localhost
+DB_PORT=5433
+DB_USERNAME=postgres
+DB_PASSWORD=password
+DB_NAME=legitwatch_comparator
+
+REDIS_HOST=localhost
+REDIS_PORT=6380
+
+NODE_ENV=development
+PORT=3002
+
+GROQ_API_KEY=gsk_...
+GEMINI_API_KEY=AIza...
+
+DASHBOARD_CONNECTOR_MODE=mock
+DASHBOARD_API_URL=http://localhost:3001
+DASHBOARD_API_KEY=your-api-key-here
+DASHBOARD_API_TIMEOUT=30000
+DASHBOARD_API_MAX_RETRIES=3
 ```
 
-**Frontend:**
-```env
-NEXT_PUBLIC_API_URL=https://api.example.com
-```
+---
 
-## Validation
+## Monitor Backend (`apps/sutra-monitor/.env`)
 
-The application validates required environment variables at startup:
-- Missing `DATABASE_URL` → Error and exit
-- Invalid `REDIS_URL` → Warning, falls back to default
-- Missing `NEXT_PUBLIC_API_URL` → Frontend API calls will fail
+| Variable | Requerida | Descripción |
+|----------|-----------|-------------|
+| `DATABASE_URL` | Sí | PostgreSQL connection string |
+| `REDIS_URL` | No | Redis URL para BullMQ (default: `redis://localhost:6380`) |
+| `PORT` | No | Puerto HTTP (default: `3001`) |
+| `NODE_ENV` | No | Entorno |
+| `SCRAPER_HEADLESS` | No | Playwright headless (default: `true`) |
+| `SCRAPER_TIMEOUT` | No | Timeout de página en ms (default: `30000`) |
+| `SCRAPER_DELAY` | No | Delay entre requests en ms (default: `1000`) |
 
-## Troubleshooting
-
-### Database Connection Fails
-```
-Error: connect ECONNREFUSED 127.0.0.1:5433
-```
-**Solution:** Ensure Docker Compose is running: `docker-compose up -d`
-
-### Redis Connection Fails
-```
-Error: connect ECONNREFUSED 127.0.0.1:6379
-```
-**Solution:** Check Redis container: `docker ps | grep redis`
-
-### Frontend Can't Reach API
-```
-TypeError: Failed to fetch
-```
-**Solution:** Verify `NEXT_PUBLIC_API_URL` matches backend URL
-
-## Environment Templates
-
-### `.env.example` (Backend)
+**Ejemplo:**
 ```env
 DATABASE_URL=postgresql://postgres:password@localhost:5433/sutra_monitor
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://localhost:6380
 PORT=3001
 NODE_ENV=development
 ```
 
-### `.env.example` (Frontend)
+---
+
+## Dashboard Frontend (`apps/sutra-dashboard/.env.local`)
+
+| Variable | Requerida | Descripción |
+|----------|-----------|-------------|
+| `NEXT_PUBLIC_API_URL` | Sí | URL del Monitor API |
+| `NEXT_PUBLIC_COMPARATOR_API` | Sí | URL del Comparador API |
+| `NEXTAUTH_SECRET` | Sí | Secreto para NextAuth |
+| `NEXTAUTH_URL` | Sí | URL base del dashboard |
+
+**Ejemplo:**
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_COMPARATOR_API=http://localhost:3002
+NEXTAUTH_SECRET=your-secret-key-here
+NEXTAUTH_URL=http://localhost:3000
 ```
 
-Copy these to `.env` and customize for your environment.
+---
+
+## Docker Compose (infraestructura)
+
+Puertos configurados en `docker-compose.yml`:
+
+| Servicio | Puerto host | Puerto container | Notas |
+|----------|-------------|------------------|-------|
+| PostgreSQL 16 (pgvector) | **5433** | 5432 | Crea `sutra_monitor`; `init-db.sql` crea `legitwatch_comparator` |
+| Redis 7 | **6380** | 6379 | Sin persistencia (in-memory) |
+
+> ⚠️ Los `.env` de las apps deben usar los puertos **host** (5433 y 6380), no los de container.
+
+---
+
+## Consideraciones de producción
+
+- Nunca commitear `.env` con keys reales
+- Usar secrets management (Docker Secrets, AWS Secrets Manager, etc.)
+- Cambiar las contraseñas por defecto de PostgreSQL
+- Configurar `sslmode=require` en `DATABASE_URL` para producción
+- Las variables `GROQ_API_KEY` y `GEMINI_API_KEY` son opcionales — el sistema funciona con respuestas stub si no están configuradas

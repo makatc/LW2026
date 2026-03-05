@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ComparisonResult } from '../entities/comparison-result.entity';
 import { DocumentVersion } from '../entities/document-version.entity';
+import type { StakeholderAnalysis } from '../comparison/services/llm-analysis.service';
 
 export interface ProjectSummary {
   comparisonId: string;
@@ -25,10 +26,14 @@ export interface ProjectSummary {
   chunkComparisons: Array<{
     sourceChunkId: string;
     targetChunkId: string;
+    label?: string;
     diffHtml: string;
+    sourceSideHtml?: string;
+    targetSideHtml?: string;
     changeType?: string;
     impactScore?: number;
   }>;
+  stakeholderAnalysis?: StakeholderAnalysis;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -94,6 +99,7 @@ export class ReportsService {
       impactScore: comparison.impactScore,
       totalChanges: comparison.chunkComparisons.length,
       chunkComparisons: comparison.chunkComparisons,
+      stakeholderAnalysis: comparison.metadata?.stakeholderAnalysis,
       createdAt: comparison.createdAt,
       updatedAt: comparison.updatedAt,
     };

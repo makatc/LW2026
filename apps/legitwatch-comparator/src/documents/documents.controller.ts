@@ -11,10 +11,12 @@ import {
   UploadedFiles,
   UseInterceptors,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { IngestionService, JobStatusInfo } from './services/ingestion.service';
 import { UploadService, UploadResult } from './services/upload.service';
+import { FileParserService, ParsedFile } from './services/file-parser.service';
 import { IngestDocumentDto } from './dto';
 
 /**
@@ -28,6 +30,7 @@ export class DocumentsController {
   constructor(
     private readonly ingestionService: IngestionService,
     private readonly uploadService: UploadService,
+    private readonly fileParserService: FileParserService,
   ) {}
 
   /**
@@ -44,6 +47,12 @@ export class DocumentsController {
     @Query('autoIngest') autoIngest?: string,
   ): Promise<UploadResult> {
     this.logger.log(`File upload request: ${file?.originalname || 'unknown'}`);
+
+    if (!file) {
+      throw new BadRequestException(
+        'No se recibió ningún archivo. Verifica que el campo del formulario se llame "file".',
+      );
+    }
 
     return this.uploadService.uploadFile(file, {
       title,
@@ -68,6 +77,22 @@ export class DocumentsController {
     return this.uploadService.uploadFiles(files, {
       autoIngest: autoIngest !== 'false',
     });
+  }
+
+  /**
+   * Extract text from a file without persisting it
+   * POST /documents/extract
+   */
+  @Post('extract')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  async extractText(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<ParsedFile> {
+    this.logger.log(`Text extraction request: ${file?.originalname || 'unknown'}`);
+    this.fileParserService.validateFileSize(file);
+    this.fileParserService.validateFileType(file);
+    return this.fileParserService.parseFile(file);
   }
 
   /**
@@ -112,6 +137,18 @@ export class DocumentsController {
       this.logger.error(`Failed to get job status: ${error}`);
       throw error;
     }
+  }
+
+  /**
+   * Get the processing status of a specific document version
+   * GET /documents/versions/:versionId/status
+   */
+  @Get('versions/:versionId/status')
+  async getVersionStatus(
+    @Param('versionId') versionId: string,
+  ): Promise<{ versionId: string; status: string }> {
+    this.logger.debug(`Version status request for ${versionId}`);
+    return this.ingestionService.getVersionStatus(versionId);
   }
 
   /**

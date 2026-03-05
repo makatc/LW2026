@@ -1,6 +1,8 @@
-# Guía de Instalación - SUTRA Monitor + Legitwatch Comparador
+# Guía de Instalación — LWBETA
 
 Instrucciones para instalar y ejecutar el sistema completo en **Linux Debian/Ubuntu** o **macOS**.
+
+---
 
 ## 1️⃣ Instalar Node.js (v20+)
 
@@ -15,126 +17,109 @@ sudo apt-get install -y nodejs
 brew install node
 ```
 
-### Verificar instalación:
+### Verificar:
 ```bash
-node --version   # Debe ser v20.0.0 o superior
-npm --version    # Debe ser 10+
+node --version   # v20.0.0 o superior
+npm --version    # 10+
 ```
 
 ---
 
-## 2️⃣ Instalar PostgreSQL (12+)
+## 2️⃣ Instalar Docker
+
+El proyecto usa Docker Compose para levantar PostgreSQL y Redis.
 
 ### En Debian/Ubuntu:
 ```bash
 sudo apt-get update
-sudo apt-get install -y postgresql postgresql-contrib
+sudo apt-get install -y docker.io docker-compose-plugin
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+# Cerrar y reabrir la terminal para que el grupo docker aplique
 ```
 
-### En macOS (con Homebrew):
+### En macOS:
+Instalar [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+### Verificar:
 ```bash
-brew install postgresql
-```
-
-### Iniciar servicio:
-```bash
-# Debian/Ubuntu
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# macOS
-brew services start postgresql
-```
-
-### Crear usuario y base de datos:
-```bash
-sudo -u postgres psql << EOF
-CREATE ROLE postgres WITH LOGIN PASSWORD 'password' SUPERUSER CREATEDB;
-CREATE DATABASE sutra_monitor OWNER postgres;
-CREATE DATABASE legitwatch_comparator OWNER postgres;
-
--- Extensiones necesarias
-\c sutra_monitor;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "vector";
-
-\c legitwatch_comparator;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "vector";
-EOF
-```
-
-### Verificar conexión:
-```bash
-psql -h localhost -U postgres -c "SELECT 1;"
+docker --version
+docker compose version
 ```
 
 ---
 
-## 3️⃣ Instalar Redis (6+)
-
-### En Debian/Ubuntu:
-```bash
-sudo apt-get install -y redis-server
-sudo systemctl start redis-server
-sudo systemctl enable redis-server
-```
-
-### En macOS (con Homebrew):
-```bash
-brew install redis
-brew services start redis
-```
-
-### Verificar conexión:
-```bash
-redis-cli ping   # Debe responder "PONG"
-```
-
----
-
-## 4️⃣ Clonar Repositorio e Instalar Dependencias
+## 3️⃣ Clonar el repositorio e instalar dependencias
 
 ```bash
 cd ~
 git clone <REPO_URL> LWBETA
 cd LWBETA
 
-# Usar pnpm (package manager oficial del proyecto)
-npm install -g pnpm@10
+# Instalar dependencias del comparador
+cd apps/legitwatch-comparator
+npm install
+cd ../..
 
-# Instalar dependencias
-pnpm install
+# Instalar dependencias del dashboard (si se va a desarrollar)
+cd apps/sutra-dashboard
+npm install
+cd ../..
 ```
-
-Verifica que no haya errores de compilación.
 
 ---
 
-## 5️⃣ Configurar Variables de Entorno
+## 4️⃣ Levantar la infraestructura Docker
 
-### Monitor Backend (`apps/sutra-monitor/.env`)
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/sutra_monitor
-REDIS_URL=redis://localhost:6379
-PORT=3001
-NODE_ENV=development
-``` 
+```bash
+# Desde la raíz del monorepo
+docker compose up -d
+```
 
-### Comparador Backend (`apps/legitwatch-comparator/.env`)
+Esto levanta:
+- **PostgreSQL 16** (pgvector) — host puerto **5433**
+  - Crea `sutra_monitor` automáticamente
+  - El script `scripts/init-db.sql` crea `legitwatch_comparator` y habilita `pgvector`
+- **Redis 7** — host puerto **6380**
+
+Verificar:
+```bash
+docker compose ps
+```
+
+---
+
+## 5️⃣ Configurar variables de entorno
+
+### Comparador (`apps/legitwatch-comparator/.env`)
+
+El archivo ya existe. Asegurarse de que los puertos sean los correctos:
+
 ```env
 DB_HOST=localhost
-DB_PORT=5432
+DB_PORT=5433          # Puerto HOST de Docker (no el del container)
 DB_USERNAME=postgres
 DB_PASSWORD=password
 DB_NAME=legitwatch_comparator
+
 REDIS_HOST=localhost
-REDIS_PORT=6379
-PORT=3002
+REDIS_PORT=6380        # Puerto HOST de Docker (no el del container)
+
 NODE_ENV=development
+PORT=3002
+
+# Opcionales — el app funciona con stubs si no están configuradas
+GROQ_API_KEY=          # Resumen ejecutivo + análisis de impacto
+GEMINI_API_KEY=        # OCR de PDFs escaneados
 ```
 
-### Dashboard Frontend (`apps/sutra-dashboard/.env.local`)
+Obtener las keys:
+- Groq: https://console.groq.com/keys
+- Gemini: https://aistudio.google.com/apikey
+
+### Dashboard (`apps/sutra-dashboard/.env.local`)
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXT_PUBLIC_COMPARATOR_API=http://localhost:3002
@@ -142,76 +127,58 @@ NEXTAUTH_SECRET=your-secret-key-here
 NEXTAUTH_URL=http://localhost:3000
 ```
 
----
+### Monitor (`apps/sutra-monitor/.env`)
 
-## 6️⃣ Ejecutar Migraciones de Base de Datos
-
-```bash
-export DATABASE_URL=postgresql://postgres:password@localhost:5432/sutra_monitor
-
-cd packages/db
-pnpm exec typeorm migration:run
+```env
+DATABASE_URL=postgresql://postgres:password@localhost:5433/sutra_monitor
+REDIS_URL=redis://localhost:6380
+PORT=3001
+NODE_ENV=development
 ```
 
-Si todo va bien, verás: **"Migrations were executed successfully"`**
+---
+
+## 6️⃣ Ejecutar migraciones del comparador
+
+```bash
+cd apps/legitwatch-comparator
+npm run migration:run
+```
+
+Crea las tablas: `documents`, `document_versions`, `document_chunks`, `source_snapshots`, `comparison_results`.
+
+Verificar:
+```bash
+docker exec -it lwbeta-postgres-1 psql -U postgres -d legitwatch_comparator -c "\dt"
+```
 
 ---
 
-## 7️⃣ Iniciar Servicios
+## 7️⃣ Iniciar todos los servicios
 
-### Opción A: Todo automático (recomendado)
 ```bash
 bash ~/LWBETA/dev.sh
 ```
 
-Esto inicia los 3 servicios simultáneamente:
-- ✅ Dashboard en `http://localhost:3000`
-- ✅ Monitor API en `http://localhost:3001`
-- ✅ Comparador en `http://localhost:3002` (con auto-restart)
+Levanta los 3 servicios en background:
+- Dashboard → http://localhost:3000
+- Monitor API → http://localhost:3001
+- Comparador API → http://localhost:3002
 
-**Presiona Ctrl+C** para detener todo.
-
-### Opción B: Servicios individuales
-```bash
-# Terminal 1 - Dashboard
-cd ~/LWBETA/apps/sutra-dashboard
-npm run dev
-
-# Terminal 2 - Monitor
-cd ~/LWBETA/apps/sutra-monitor
-npm run start:dev
-
-# Terminal 3 - Comparador
-cd ~/LWBETA/apps/legitwatch-comparador
-npm run start:dev
-```
+**Acceso:**
+- Email: `admin@legalwatch.pr`
+- Password: `password`
 
 ---
 
-## 8️⃣ Acceder a la Aplicación
+## ✅ Checklist de verificación
 
-1. Abre `http://localhost:3000` en tu navegador
-2. **Usuarios por defecto:**
-   - Email: `admin@legalwatch.pr`
-   - Password: `password`
-3. Verifica que puedas:
-   - Ver el dashboard con estadísticas
-   - Acceder a la sección "Comparador"
-   - Subir un PDF de prueba
-
----
-
-## ✅ Checklist de Verificación
-
-- [ ] PostgreSQL corre en puerto 5432
-- [ ] Redis corre en puerto 6379  
-- [ ] `pnpm install` completó sin errores
-- [ ] Migraciones BD ejecutadas (`typeorm migration:run`)
-- [ ] Variables de entorno configuradas en los 3 servicios
-- [ ] `bash ~/LWBETA/dev.sh` inicia 3 servicios sin fallos
-- [ ] Dashboard accesible en `http://localhost:3000`
-- [ ] Login funciona con las credenciales por defecto
-- [ ] Test de upload de PDF funciona sin errores
+- [ ] `docker compose ps` — postgres y redis corriendo
+- [ ] `npm run migration:run` en `apps/legitwatch-comparator` — sin errores
+- [ ] Dashboard visible en http://localhost:3000
+- [ ] Comparador responde en http://localhost:3002/health (o endpoint raíz)
+- [ ] Upload de PDF en el comparador funciona
+- [ ] Comparación completa sin errores de conexión
 
 ---
 
@@ -219,49 +186,48 @@ npm run start:dev
 
 ### "connection refused" a PostgreSQL
 ```bash
-# Verifica que esté corriendo:
-sudo systemctl status postgresql
-
-# O en macOS:
-brew services list | grep postgres
+docker compose ps            # Verificar que esté corriendo
+docker compose logs postgres # Ver logs
+docker compose restart postgres
 ```
 
 ### "connection refused" a Redis
 ```bash
-# Verifica que esté corriendo:
-sudo systemctl status redis-server
-
-# O en macOS:
-brew services list | grep redis
+docker compose ps
+docker compose logs redis
+docker compose restart redis
 ```
 
-### Puertos ya en uso
-```bash
-# Mata procesos Node:
-killall node
+### Puerto incorrecto en .env
+El `.env` debe usar los puertos **host** de Docker:
+- `DB_PORT=5433` (no 5432)
+- `REDIS_PORT=6380` (no 6379)
 
-# O en puertos específicos:
-kill $(lsof -t -i:3000,3001,3002)
+### Puertos de app ya en uso
+```bash
+lsof -i :3000,:3001,:3002
+killall node
 ```
 
 ### Error de migraciones
 ```bash
-# Verifica que DATABASE_URL esté exportada:
-echo $DATABASE_URL
+# Verificar que la BD existe
+docker exec -it lwbeta-postgres-1 psql -U postgres -l
 
-# Reintenta:
-cd packages/db
-pnpm exec typeorm migration:run -c default
+# Crear manualmente si no existe
+docker exec -it lwbeta-postgres-1 psql -U postgres \
+  -c "CREATE DATABASE legitwatch_comparator;"
+
+# Reintentar
+cd apps/legitwatch-comparator && npm run migration:run
 ```
 
----
-
-## 📚 Siguientes Pasos
-
-1. **Lee el README.md** para entender la arquitectura
-2. **Configura palabras clave** en http://localhost:3000/config
-3. **Agrega medidas a monitorear** desde el dashboard
-4. **Prueba el comparador** subiendo documentos
+### BullMQ jobs no se procesan
+```bash
+# Verificar Redis accesible
+docker exec -it lwbeta-redis-1 redis-cli ping
+# Expected: PONG
+```
 
 ---
 

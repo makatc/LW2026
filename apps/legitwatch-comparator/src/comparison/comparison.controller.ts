@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { ComparisonService, ComparisonJobStatusInfo } from './services';
 import { CompareVersionsDto } from './dto';
@@ -103,6 +104,21 @@ export class ComparisonController {
       this.logger.error(`Failed to list comparisons: ${error}`);
       throw error;
     }
+  }
+
+  /**
+   * Synchronous text-to-text comparison (no DB, no queue)
+   * POST /comparison/quick-compare
+   */
+  @Post('quick-compare')
+  @HttpCode(HttpStatus.OK)
+  quickCompare(
+    @Body() body: { textA: string; textB: string },
+  ): ReturnType<ComparisonService['quickCompare']> {
+    if (!body?.textA || !body?.textB) {
+      throw new BadRequestException('Se requieren textA y textB');
+    }
+    return this.comparisonService.quickCompare(body.textA, body.textB);
   }
 
   /**

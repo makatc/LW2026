@@ -1,7 +1,9 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as mammoth from 'mammoth';
+import axios from 'axios';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 
 export interface ParsedFile {
   text: string;
@@ -17,6 +19,11 @@ export interface ParsedFile {
 @Injectable()
 export class FileParserService {
   private readonly logger = new Logger(FileParserService.name);
+  private readonly geminiApiKey: string | undefined;
+
+  constructor(private readonly configService: ConfigService) {
+    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY');
+  }
 
   /**
    * Parse uploaded file based on mime type
@@ -102,41 +109,107 @@ export class FileParserService {
   ): Promise<{ text: string; metadata: Partial<ParsedFile['metadata']> }> {
     this.logger.debug(`Parsing PDF document: ${file.originalname}`);
 
-    let data: any;
+    let text: string;
+    let pageCount: number | undefined;
     try {
-      data = await pdfParse(file.buffer, {
-        // Disable test-file check that can cause failures
-        max: 0,
-      });
+      const parser = new PDFParse({ data: file.buffer });
+      const [textResult, infoResult] = await Promise.all([
+        parser.getText(),
+        parser.getInfo().catch(() => null),
+      ]);
+      await parser.destroy();
+      text = textResult.text ?? '';
+      pageCount = infoResult?.total;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // Encrypted / password-protected PDF
       if (msg.includes('encrypt') || msg.includes('password')) {
         throw new BadRequestException(
           `El PDF está protegido con contraseña y no puede procesarse.`,
         );
       }
-      // Corrupted or unsupported PDF variant
       throw new BadRequestException(
         `No se pudo leer el PDF "${file.originalname}". Asegúrate de que no esté dañado ni sea solo una imagen escaneada. Detalle: ${msg}`,
       );
     }
 
-    const text: string = data.text ?? '';
-
-    // PDF with no extractable text (scanned image PDF)
+    // PDF with no extractable text — try AI-powered OCR fallback
     if (!text || text.trim().length < 10) {
+      if (this.geminiApiKey) {
+        this.logger.log(
+          `PDF "${file.originalname}" has no text layer — attempting Gemini OCR`,
+        );
+        const ocrText = await this.extractTextViaGeminiOcr(file.buffer, file.originalname);
+        if (ocrText && ocrText.trim().length >= 10) {
+          return { text: ocrText, metadata: { pageCount } };
+        }
+      }
       throw new BadRequestException(
-        `El PDF "${file.originalname}" no contiene texto extraíble. Es posible que sea un PDF escaneado (solo imagen). Convierte el archivo a PDF con capa de texto o usa un archivo .txt/.docx.`,
+        `El PDF "${file.originalname}" no contiene texto extraíble. Es posible que sea un PDF escaneado. ` +
+        (this.geminiApiKey
+          ? 'El OCR automático no pudo extraer texto suficiente.'
+          : 'Configure GEMINI_API_KEY para habilitar extracción automática de PDFs escaneados.'),
       );
     }
 
     return {
       text,
-      metadata: {
-        pageCount: data.numpages,
-      },
+      metadata: { pageCount },
     };
+  }
+
+  /**
+   * Use Google Gemini API to extract text from a scanned/image PDF.
+   * Gemini supports PDFs via inline base64 data in the multimodal API.
+   */
+  private async extractTextViaGeminiOcr(
+    buffer: Buffer,
+    fileName: string,
+  ): Promise<string> {
+    try {
+      const base64Pdf = buffer.toString('base64');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.geminiApiKey}`;
+
+      const response = await axios.post(
+        url,
+        {
+          contents: [
+            {
+              parts: [
+                {
+                  inline_data: {
+                    mime_type: 'application/pdf',
+                    data: base64Pdf,
+                  },
+                },
+                {
+                  text: 'Extrae y transcribe todo el texto de este documento PDF exactamente como aparece. Preserva la estructura de párrafos y artículos. No añadas comentarios ni explicaciones, solo el texto del documento.',
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens: 8192,
+            temperature: 0,
+          },
+        },
+        {
+          headers: { 'content-type': 'application/json' },
+          timeout: 60000,
+        },
+      );
+
+      const extracted =
+        (response.data as any).candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      this.logger.log(
+        `Gemini OCR extracted ${extracted.length} characters from "${fileName}"`,
+      );
+      return extracted;
+    } catch (error) {
+      this.logger.error(
+        `Gemini OCR failed for "${fileName}": ${(error as any)?.message}`,
+      );
+      return '';
+    }
   }
 
   /**

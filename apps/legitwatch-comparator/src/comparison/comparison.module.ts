@@ -9,6 +9,7 @@ import {
 } from '../entities';
 import { ComparisonController } from './comparison.controller';
 import { DiffService, ComparisonService } from './services';
+import { LlmAnalysisService } from './services/llm-analysis.service';
 import { CompareProcessor } from './processors/compare.processor';
 
 /**
@@ -40,8 +41,9 @@ import { CompareProcessor } from './processors/compare.processor';
   providers: [
     DiffService,
     ComparisonService,
+    LlmAnalysisService,
     CompareProcessor,
   ],
-  exports: [DiffService, ComparisonService],
+  exports: [DiffService, ComparisonService, LlmAnalysisService],
 })
 export class ComparisonModule {}

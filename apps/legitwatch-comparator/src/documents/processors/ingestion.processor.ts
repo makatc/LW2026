@@ -75,7 +75,15 @@ export class IngestionProcessor extends WorkerHost {
       const detectedChunks = this.structureDetector.detectStructure(normalizedText);
 
       if (detectedChunks.length === 0) {
-        throw new Error('No structural elements detected in document');
+        this.logger.warn('No structural elements detected — treating entire document as one chunk');
+        detectedChunks.push({
+          type: 'section' as any,
+          label: 'Documento completo',
+          content: normalizedText,
+          orderIndex: 0,
+          startPosition: 0,
+          endPosition: normalizedText.length,
+        });
       }
 
       const validation = this.structureDetector.validateStructure(detectedChunks);
@@ -85,18 +93,38 @@ export class IngestionProcessor extends WorkerHost {
 
       this.logger.debug(`Detected ${detectedChunks.length} structural chunks`);
 
-      // Step 5: Create or get Document
-      const document = await this.getOrCreateDocument(snapshot);
+      // Step 5: Re-use the version created during upload (identified by snapshotId in metadata),
+      // or create a new document + version for manual/programmatic ingestion.
+      let document: Document;
+      let version: DocumentVersion;
 
-      // Step 6: Create DocumentVersion
-      const version = await this.createDocumentVersion(
-        document.id,
-        snapshot,
-        versionTag || snapshot.metadata?.versionTag || 'v1',
-        normalizedText,
-      );
+      const existingVersion = await this.versionRepository
+        .createQueryBuilder('v')
+        .where("v.metadata->>'snapshotId' = :snapshotId", { snapshotId })
+        .getOne();
 
-      // Step 7: Create DocumentChunks
+      if (existingVersion) {
+        this.logger.debug(`Re-using existing version ${existingVersion.id} for snapshot ${snapshotId}`);
+        const existingDocument = await this.documentRepository.findOne({
+          where: { id: existingVersion.documentId },
+        });
+        if (!existingDocument) throw new Error(`Document for version ${existingVersion.id} not found`);
+        document = existingDocument;
+        version = existingVersion;
+        // Remove any stale chunks from a previous failed ingest
+        await this.chunkRepository.delete({ versionId: version.id });
+      } else {
+        // Manual ingest path: create new document and version
+        document = await this.getOrCreateDocument(snapshot);
+        version = await this.createDocumentVersion(
+          document.id,
+          snapshot,
+          versionTag || snapshot.metadata?.versionTag || 'v1',
+          normalizedText,
+        );
+      }
+
+      // Step 6: Create DocumentChunks
       const chunks = await this.createDocumentChunks(version.id, detectedChunks);
 
       // Step 8: Update version status to READY
@@ -119,17 +147,19 @@ export class IngestionProcessor extends WorkerHost {
     } catch (error) {
       this.logger.error(`Ingestion failed for snapshot ${snapshotId}: ${error}`);
 
-      // Try to mark version as ERROR if it was created
+      // Mark the version that belongs to THIS snapshot as ERROR.
+      // Query by snapshotId stored in version metadata to avoid marking a
+      // concurrent, unrelated PROCESSING version as failed (Bug 4 fix).
       try {
-        const versions = await this.versionRepository.find({
-          where: { status: DocumentVersionStatus.PROCESSING },
-          order: { createdAt: 'DESC' },
-          take: 1,
-        });
+        const failedVersion = await this.versionRepository
+          .createQueryBuilder('v')
+          .where("v.metadata->>'snapshotId' = :snapshotId", { snapshotId })
+          .getOne();
 
-        if (versions.length > 0) {
-          versions[0].status = DocumentVersionStatus.ERROR;
-          await this.versionRepository.save(versions[0]);
+        if (failedVersion && failedVersion.status === DocumentVersionStatus.PROCESSING) {
+          failedVersion.status = DocumentVersionStatus.ERROR;
+          await this.versionRepository.save(failedVersion);
+          this.logger.log(`Marked version ${failedVersion.id} as ERROR`);
         }
       } catch (updateError) {
         this.logger.error(`Failed to update version status: ${updateError}`);

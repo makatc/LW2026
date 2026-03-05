@@ -3,9 +3,9 @@
 Monorepo integrado que combina un sistema de monitoreo legislativo automatizado con un servicio de análisis y comparación de documentos para la Oficina de Servicios Legislativos de Puerto Rico.
 
 **Componentes:**
-1. **SUTRA Monitor** - Scraping, detección y monitoreo de medidas legislativas
-2. **LegalWatch Comparador** - Análisis, comparación y extracción de documentos
-3. **SUTRA Dashboard** - Interfaz web para usuarios
+1. **SUTRA Monitor** — Scraping, detección y monitoreo de medidas legislativas
+2. **LegalWatch Comparador** — Comparación inteligente de versiones de leyes con IA
+3. **SUTRA Dashboard** — Interfaz web para usuarios
 
 ---
 
@@ -22,32 +22,34 @@ Toda la documentación técnica está en [`docs/`](./docs/):
 | [⚙️ ENVIRONMENT.md](docs/ENVIRONMENT.md) | Variables de entorno |
 | [📊 PROJECT_SPEC.md](docs/PROJECT_SPEC.md) | Especificación técnica |
 | [🔍 COMPARADOR_ANALYSIS.md](docs/COMPARADOR_ANALYSIS.md) | Análisis del Comparador |
-| [🧹 CLEANUP_REPORT.md](docs/CLEANUP_REPORT.md) | Auditoría de limpieza (archivos eliminados) |
+| [🧹 CLEANUP_REPORT.md](docs/CLEANUP_REPORT.md) | Auditoría de limpieza |
 
 ---
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Instalar dependencias
-npm install -g pnpm@10
-pnpm install
+# 1. Levantar infraestructura (PostgreSQL + Redis)
+docker compose up -d
 
-# 2. Configurar BD y variables (.env)
-# Ver: docs/INSTALL_GUIDE.md
+# 2. Instalar dependencias del comparador
+cd apps/legitwatch-comparator
+npm install
 
-# 3. Ejecutar migraciones
-export DATABASE_URL=postgresql://postgres:password@localhost:5432/sutra_monitor
-cd packages/db && pnpm exec typeorm migration:run
+# 3. Configurar variables de entorno
+# Ver: apps/legitwatch-comparator/.env (ajustar GROQ_API_KEY y GEMINI_API_KEY)
 
-# 4. Iniciar servicios
+# 4. Ejecutar migraciones del comparador
+npm run migration:run
+
+# 5. Iniciar todos los servicios
 bash ~/LWBETA/dev.sh
 ```
 
 **Acceso:**
 - 🌐 Dashboard: http://localhost:3000
 - 🔌 Monitor API: http://localhost:3001
-- 📄 Comparador: http://localhost:3002
+- 📄 Comparador API: http://localhost:3002
 
 **Credenciales por defecto:**
 - Email: `admin@legalwatch.pr`
@@ -60,62 +62,53 @@ bash ~/LWBETA/dev.sh
 ```
 LWBETA (Monorepo)
 ├── apps/
-│   ├── sutra-dashboard/           # Next.js - Frontend
-│   ├── sutra-monitor/             # NestJS - Backend (scrapers)
-│   └── legitwatch-comparator/     # NestJS - Análisis de docs
+│   ├── sutra-dashboard/           # Next.js 14 — Frontend
+│   ├── sutra-monitor/             # NestJS 11 — Scraping y monitoreo (port 3001)
+│   └── legitwatch-comparator/     # NestJS 11 — Motor de comparación (port 3002)
 ├── packages/
-│   ├── db/                        # Migraciones TypeORM
-│   ├── lw-auth/                   # Autenticación
-│   └── ...
-└── docs/                          # Documentación técnica
+│   ├── db/                        # Migraciones TypeORM (sutra-monitor)
+│   ├── lw-shared-types/           # Tipos TypeScript compartidos
+│   └── ...                        # Otros paquetes compartidos
+├── docs/                          # Documentación técnica
+├── scripts/
+│   └── init-db.sql                # Inicialización de BD (crea legitwatch_comparator + extensión vector)
+├── docker-compose.yml             # PostgreSQL 16 (pgvector) + Redis 7
+└── dev.sh                         # Script de inicio unificado
 ```
 
 **Tech Stack:**
-- Backend: NestJS, Playwright, BullMQ, TypeORM
-- Frontend: Next.js 14, React, TailwindCSS  
-- DB: PostgreSQL 12+ (pgvector), Redis 6+
-- PM: pnpm, Turborepo
+- Backend: NestJS 11, TypeORM, BullMQ, diff-match-patch
+- Frontend: Next.js 14, TailwindCSS, @tanstack/react-query, lucide-react
+- DB: PostgreSQL 16 (pgvector), Redis 7
+- LLM: Groq API (resúmenes), Google Gemini API (OCR de PDFs escaneados)
+- Package manager: npm (en este entorno; el proyecto usa Turborepo)
+
+**Puertos Docker (host → container):**
+- PostgreSQL: `5433 → 5432`
+- Redis: `6380 → 6379`
 
 ---
 
 ## ✨ Características
 
 ### SUTRA Monitor
-✅ Scraping automático de medidas  
-✅ Detección por palabras clave  
-✅ Monitoreo de medidas  
-✅ Notificaciones por email  
-✅ Dashboard con estadísticas  
+- Scraping automático de medidas legislativas
+- Detección por palabras clave
+- Monitoreo de medidas con alertas
+- Notificaciones por email
+- Dashboard con estadísticas
 
 ### LegalWatch Comparador
-✅ Carga de PDFs  
-✅ Extracción de texto  
-✅ Análisis de documentos  
-✅ Comparación de versiones  
-✅ API RESTful  
-
----
-
-## 📦 Estructura del Proyecto
-
-```
-LWBETA/
-├── apps/
-│   ├── sutra-monitor/          # NestJS backend
-│   ├── sutra-dashboard/        # Next.js frontend
-│   └── legitwatch-comparator/  # NestJS service
-├── packages/                   # Librerías compartidas
-│   ├── db/                     # BD y migraciones
-│   ├── lw-auth/                # Autenticación
-│   ├── lw-storage/             # Almacenamiento
-│   ├── lw-shared-types/        # Tipos TypeScript
-│   └── ...
-├── docs/                       # Documentación técnica
-├── scripts/                    # Utilidades dev
-├── docker-compose.yml          # Infraestructura Docker
-├── dev.sh                      # Script de inicio
-└── pnpm-workspace.yaml         # Configuración monorepo
-```
+- Upload de PDFs y DOCX directamente desde el dashboard
+- OCR automático para PDFs escaneados (vía Gemini)
+- Extracción de estructura legal (Artículos, Capítulos, Secciones)
+- Diff carácter a carácter con `<ins>` / `<del>`
+- Vista Redline (unificada) y Lado a Lado sincronizada
+- Búsqueda integrada con highlight en tiempo real
+- Detección de 12 tipos de cambios semánticos
+- Resumen ejecutivo generado por IA (Groq/llama-3.1-8b-instant)
+- Análisis de impacto por partes afectadas (agencias, grupos, etc.)
+- Procesamiento asíncrono con BullMQ (no bloquea la UI)
 
 ---
 
@@ -127,40 +120,47 @@ lsof -i :3000,:3001,:3002
 killall node
 ```
 
-**Base de datos:**
+**Docker no disponible / instalar:**
 ```bash
-sudo systemctl status postgresql
-redis-cli ping  # Debe responder PONG
+sudo apt-get update && sudo apt-get install -y docker.io docker-compose-plugin
+sudo systemctl start docker
+sudo usermod -aG docker $USER
+# Reabrir terminal, luego:
+docker compose up -d
 ```
 
-**Migraciones:**
+**Migraciones del comparador:**
 ```bash
-cd packages/db
-pnpm exec typeorm migration:run
+cd apps/legitwatch-comparator
+npm run migration:run
 ```
 
-👉 Ver más en [docs/INSTALL_GUIDE.md](docs/INSTALL_GUIDE.md#-troubleshooting)
+**Redis / PostgreSQL — verificar:**
+```bash
+docker compose ps
+docker compose logs postgres
+docker compose logs redis
+```
 
 ---
 
 ## 📝 Comandos Útiles
 
 ```bash
-# Desarrollo
-bash ~/LWBETA/dev.sh                          # Iniciar todo
-npm run dev                                   # Turborepo
+# Iniciar todo
+bash ~/LWBETA/dev.sh
 
-# Build
-pnpm build                                    # Build all
-pnpm --filter sutra-monitor build            # Build específico
+# Solo el comparador
+cd apps/legitwatch-comparator && npm run start:dev
 
-# Testing
-pnpm test                                     # Unit tests
-pnpm test:e2e                                # E2E tests
+# Solo el dashboard
+cd apps/sutra-dashboard && npm run dev
 
-# Database
-export DATABASE_URL=...
-cd packages/db && pnpm exec typeorm migration:run
+# Migraciones
+cd apps/legitwatch-comparator && npm run migration:run
+
+# Tests del comparador
+cd apps/legitwatch-comparator && npm test
 ```
 
 ---
@@ -168,31 +168,20 @@ cd packages/db && pnpm exec typeorm migration:run
 ## 🤖 Status del Sistema
 
 Estado actual (Marzo 2026):
-- ✅ Todos los servicios inicializan correctamente
-- ✅ Archivos subidos y procesados sin errores
-- ✅ PDFs parseados con detección de errores
-- ✅ Documentos duplicados manejados gracefully
-- ✅ Auto-restart de servicios fallidos
-- ✅ Documentación consolidada en `docs/`
-
----
-
-## 👥 Contribuir
-
-1. Crear feature branch
-2. Hacer cambios
-3. Ejecutar tests: `pnpm test`
-4. Build: `pnpm build`
-5. Hacer PR
+- Servicios: sutra-dashboard (3000), sutra-monitor (3001), legitwatch-comparator (3002)
+- Comparador MVP completo: diff, side-by-side, LLM summary, stakeholder analysis, OCR
+- Docker: PostgreSQL 16 pgvector en puerto 5433, Redis 7 en puerto 6380
+- LLM: Groq (resumen ejecutivo) + Gemini (OCR) — funciona con stubs si no hay keys
+- Pendiente: exportación PDF real, comparación por texto pegado
 
 ---
 
 ## 📄 Licencia
 
-[Tu Licencia]
+Propietario — LegalWatch / Oficina de Servicios Legislativos de Puerto Rico
 
 ---
 
-**Construido para transparency en el proceso legislativo de Puerto Rico** 🇵🇷
+**Construido para transparencia en el proceso legislativo de Puerto Rico** 🇵🇷
 
 **Última actualización:** Marzo 2026
