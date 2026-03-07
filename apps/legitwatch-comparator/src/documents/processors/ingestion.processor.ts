@@ -11,6 +11,7 @@ import {
   DocumentVersionStatus,
 } from '../../entities';
 import { StructureDetectorService, NormalizerService } from '../services';
+import { DoclingService } from '../services/docling.service';
 import type { IngestionJobData, IngestionJobResult } from '../dto';
 
 /**
@@ -35,13 +36,14 @@ export class IngestionProcessor extends WorkerHost {
     private readonly chunkRepository: Repository<DocumentChunk>,
     private readonly normalizer: NormalizerService,
     private readonly structureDetector: StructureDetectorService,
+    private readonly doclingService: DoclingService,
   ) {
     super();
   }
 
   async process(job: Job<IngestionJobData>): Promise<IngestionJobResult> {
     const startTime = Date.now();
-    const { snapshotId, versionTag } = job.data;
+    const { snapshotId, versionTag, fileBufferBase64, originalFileName } = job.data;
 
     this.logger.log(`Processing ingestion job ${job.id} for snapshot ${snapshotId}`);
 
@@ -71,8 +73,50 @@ export class IngestionProcessor extends WorkerHost {
 
       this.logger.debug(`Normalized: ${stats.removedCharacters} chars removed`);
 
-      // Step 4: Detect structure
-      const detectedChunks = this.structureDetector.detectStructure(normalizedText);
+      // Step 4: Detect structure — try Docling first, fall back to regex detector
+      let detectedChunks: Array<{
+        type: any;
+        label: string;
+        content: string;
+        orderIndex: number;
+        startPosition: number;
+        endPosition: number;
+      }> = [];
+
+      // Try Docling with original file bytes (passed through job data)
+      // Falls back to normalized text as .txt if bytes not available
+      const doclingBuffer = fileBufferBase64
+        ? Buffer.from(fileBufferBase64, 'base64')
+        : Buffer.from(normalizedText, 'utf-8');
+      const doclingFileName = fileBufferBase64
+        ? (originalFileName ?? snapshot.originalFileName ?? 'document.pdf')
+        : (snapshot.originalFileName ?? 'document').replace(/\.(pdf|docx?)$/i, '.txt');
+
+      if (doclingBuffer.length > 0) {
+        const doclingResult = await this.doclingService.parse(doclingBuffer, doclingFileName);
+
+        if (doclingResult && doclingResult.chunks.length >= 2) {
+          this.logger.log(
+            `Docling extracted ${doclingResult.chunks.length} chunks from "${doclingFileName}"`,
+          );
+          detectedChunks = doclingResult.chunks.map((c, i) => ({
+            type: this.mapDoclingType(c.type),
+            label: c.label,
+            content: c.content,
+            orderIndex: i,
+            startPosition: 0,
+            endPosition: c.content.length,
+          }));
+        }
+      }
+
+      // Fallback: regex-based structure detector
+      if (detectedChunks.length < 2) {
+        if (detectedChunks.length > 0) {
+          this.logger.debug('Docling result insufficient — falling back to regex detector');
+        }
+        detectedChunks = this.structureDetector.detectStructure(normalizedText);
+      }
 
       if (detectedChunks.length === 0) {
         this.logger.warn('No structural elements detected — treating entire document as one chunk');
@@ -234,6 +278,16 @@ export class IngestionProcessor extends WorkerHost {
     });
 
     return this.versionRepository.save(version);
+  }
+
+  /** Map Docling chunk type strings to DocumentChunkType enum values */
+  private mapDoclingType(doclingType: string): any {
+    switch (doclingType) {
+      case 'article': return 'article';
+      case 'chapter': return 'chapter';
+      case 'section': return 'section';
+      default: return 'paragraph';
+    }
   }
 
   /**

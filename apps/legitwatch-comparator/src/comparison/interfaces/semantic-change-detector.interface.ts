@@ -87,53 +87,173 @@ export class StubSemanticChangeDetector implements SemanticChangeDetector {
       return changes;
     }
 
-    // Check for obligation shift
-    if (
-      oldText.toLowerCase().includes('deberá') &&
-      newText.toLowerCase().includes('podrá')
-    ) {
+    const old = oldText.toLowerCase();
+    const nw = newText.toLowerCase();
+
+    // Obligation shift: deberá → podrá (must → may) or reverse
+    if (old.includes('deberá') && nw.includes('podrá')) {
       changes.push({
         type: SemanticChangeType.OBLIGATION_SHIFT,
-        description: 'Obligation weakened from "must" to "may"',
+        description: 'Obligación debilitada: "deberá" cambiado a "podrá"',
         impactScore: 75,
-        confidence: 0.8,
+        confidence: 0.85,
         oldText,
         newText,
         reasoning: 'Detected change from "deberá" to "podrá"',
       });
+    } else if (old.includes('podrá') && nw.includes('deberá')) {
+      changes.push({
+        type: SemanticChangeType.OBLIGATION_SHIFT,
+        description: 'Obligación reforzada: "podrá" cambiado a "deberá"',
+        impactScore: 70,
+        confidence: 0.85,
+        oldText,
+        newText,
+        reasoning: 'Detected change from "podrá" to "deberá"',
+      });
     }
 
-    // Check for sanctions (basic pattern matching)
-    const sanctionKeywords = ['multa', 'sanción', 'pena', 'penalidad'];
-    const oldHasSanction = sanctionKeywords.some((k) =>
-      oldText.toLowerCase().includes(k),
-    );
-    const newHasSanction = sanctionKeywords.some((k) =>
-      newText.toLowerCase().includes(k),
-    );
-
-    if (oldHasSanction || newHasSanction) {
-      if (oldHasSanction !== newHasSanction) {
+    // Sanction changes
+    const sanctionKeywords = ['multa', 'sanción', 'sanciones', 'pena', 'penalidad', 'penalidades', 'reclusión', 'arresto'];
+    const oldHasSanction = sanctionKeywords.some((k) => old.includes(k));
+    const newHasSanction = sanctionKeywords.some((k) => nw.includes(k));
+    if (oldHasSanction !== newHasSanction) {
+      changes.push({
+        type: SemanticChangeType.SANCTION_CHANGED,
+        description: newHasSanction ? 'Sanción añadida al texto' : 'Sanción eliminada del texto',
+        impactScore: 85,
+        confidence: 0.7,
+        oldText,
+        newText,
+      });
+    } else if (oldHasSanction && newHasSanction) {
+      // Both have sanctions — check if amounts changed (e.g. $5,000 → $10,000)
+      const amountPattern = /\$[\d,]+/g;
+      const oldAmounts = oldText.match(amountPattern) ?? [];
+      const newAmounts = newText.match(amountPattern) ?? [];
+      if (JSON.stringify(oldAmounts) !== JSON.stringify(newAmounts)) {
         changes.push({
           type: SemanticChangeType.SANCTION_CHANGED,
-          description: newHasSanction
-            ? 'Sanction added'
-            : 'Sanction removed',
+          description: `Monto de sanción modificado: ${oldAmounts.join(', ')} → ${newAmounts.join(', ')}`,
           impactScore: 80,
-          confidence: 0.6,
+          confidence: 0.9,
           oldText,
           newText,
         });
       }
     }
 
-    // Default: Generic change
+    // Definition changes
+    const definitionKeywords = ['se define', 'se entiende por', 'significa', 'se entenderá', 'se define como', '"significa"'];
+    const oldHasDef = definitionKeywords.some((k) => old.includes(k));
+    const newHasDef = definitionKeywords.some((k) => nw.includes(k));
+    if ((oldHasDef || newHasDef) && oldText !== newText) {
+      changes.push({
+        type: SemanticChangeType.DEFINITION_MODIFIED,
+        description: 'Definición legal modificada',
+        impactScore: 65,
+        confidence: 0.75,
+        oldText,
+        newText,
+      });
+    }
+
+    // Scope expansion
+    const expansionKeywords = ['incluyendo pero no limitado a', 'así como', 'y cualquier', 'incluyendo sin limitación', 'entre otros', 'y/o', 'o cualquier otro'];
+    const oldExpansion = expansionKeywords.filter((k) => old.includes(k)).length;
+    const newExpansion = expansionKeywords.filter((k) => nw.includes(k)).length;
+    if (newExpansion > oldExpansion) {
+      changes.push({
+        type: SemanticChangeType.SCOPE_EXPANDED,
+        description: 'Alcance ampliado: se añadieron términos de expansión',
+        impactScore: 60,
+        confidence: 0.7,
+        oldText,
+        newText,
+      });
+    }
+
+    // Scope reduction
+    const restrictionKeywords = ['únicamente', 'exclusivamente', 'solo', 'solamente', 'limitado a', 'restringido a', 'no aplicará'];
+    const oldRestriction = restrictionKeywords.filter((k) => old.includes(k)).length;
+    const newRestriction = restrictionKeywords.filter((k) => nw.includes(k)).length;
+    if (newRestriction > oldRestriction) {
+      changes.push({
+        type: SemanticChangeType.SCOPE_REDUCED,
+        description: 'Alcance reducido: se añadieron términos restrictivos',
+        impactScore: 65,
+        confidence: 0.7,
+        oldText,
+        newText,
+      });
+    }
+
+    // New requirements
+    const requirementKeywords = ['quedan obligados', 'vendrán obligados', 'se requerirá', 'se exigirá', 'será requisito', 'deberán presentar', 'deberán obtener'];
+    const oldHasReq = requirementKeywords.some((k) => old.includes(k));
+    const newHasReq = requirementKeywords.some((k) => nw.includes(k));
+    if (!oldHasReq && newHasReq) {
+      changes.push({
+        type: SemanticChangeType.REQUIREMENT_ADDED,
+        description: 'Nuevo requisito añadido',
+        impactScore: 70,
+        confidence: 0.8,
+        oldText,
+        newText,
+      });
+    } else if (oldHasReq && !newHasReq) {
+      changes.push({
+        type: SemanticChangeType.REQUIREMENT_REMOVED,
+        description: 'Requisito eliminado',
+        impactScore: 70,
+        confidence: 0.8,
+        oldText,
+        newText,
+      });
+    }
+
+    // Exemptions
+    const exemptionKeywords = ['quedan exentos', 'estarán exentos', 'no aplicará a', 'no aplica a', 'quedan exceptuados', 'están exceptuados'];
+    const oldHasExempt = exemptionKeywords.some((k) => old.includes(k));
+    const newHasExempt = exemptionKeywords.some((k) => nw.includes(k));
+    if (oldHasExempt !== newHasExempt) {
+      changes.push({
+        type: newHasExempt ? SemanticChangeType.SCOPE_REDUCED : SemanticChangeType.SCOPE_EXPANDED,
+        description: newHasExempt ? 'Exención añadida' : 'Exención eliminada',
+        impactScore: 75,
+        confidence: 0.8,
+        oldText,
+        newText,
+      });
+    }
+
+    // Deadline changes: detect numeric day/month/year modifications
+    const deadlinePattern = /(\d+)\s*(días?|meses?|años?|horas?)/gi;
+    const oldDeadlines = [...oldText.matchAll(deadlinePattern)].map((m) => m[0]);
+    const newDeadlines = [...newText.matchAll(deadlinePattern)].map((m) => m[0]);
+    if (oldDeadlines.length > 0 || newDeadlines.length > 0) {
+      if (JSON.stringify(oldDeadlines) !== JSON.stringify(newDeadlines)) {
+        changes.push({
+          type: SemanticChangeType.DEADLINE_CHANGED,
+          description: `Plazo modificado: ${oldDeadlines.join(', ') || 'ninguno'} → ${newDeadlines.join(', ') || 'ninguno'}`,
+          impactScore: 70,
+          confidence: 0.85,
+          oldText,
+          newText,
+        });
+      }
+    }
+
+    // Default: generic change with moderate score
     if (changes.length === 0) {
+      const lengthDiff = Math.abs(newText.length - oldText.length);
+      const changeRatio = lengthDiff / Math.max(oldText.length, 1);
+      const score = Math.min(50, Math.round(30 + changeRatio * 40));
       changes.push({
         type: SemanticChangeType.NO_SEMANTIC_CHANGE,
-        description: 'Text modified but no specific semantic change detected',
-        impactScore: 30,
-        confidence: 0.5,
+        description: 'Cambio de texto sin patrón semántico específico detectado',
+        impactScore: score,
+        confidence: 0.4,
         oldText,
         newText,
       });

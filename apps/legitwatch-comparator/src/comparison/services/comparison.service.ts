@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Queue, QueueEvents } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
-import { ComparisonResult } from '../../entities';
+import { ComparisonResult, ComparisonStatus } from '../../entities';
 import type { ComparisonJobData, ComparisonJobResult } from '../dto';
 import { DiffService } from './diff.service';
 
@@ -59,6 +59,17 @@ export class ComparisonService {
       `Queueing comparison: ${sourceVersionId} vs ${targetVersionId}`,
     );
 
+    // Return existing completed comparison if available (avoid re-processing)
+    const existing = await this.comparisonRepository.findOne({
+      where: { sourceVersionId, targetVersionId, status: ComparisonStatus.COMPLETED },
+      order: { createdAt: 'DESC' },
+    });
+    if (existing) {
+      this.logger.log(`Returning cached comparison ${existing.id}`);
+      // Return a synthetic job ID that signals the cache hit to the controller
+      return `cached:${existing.id}`;
+    }
+
     const job = await this.comparisonQueue.add(
       'compare-versions',
       { sourceVersionId, targetVersionId, detectSemanticChanges },
@@ -84,6 +95,25 @@ export class ComparisonService {
    * @returns Job status information
    */
   async getJobStatus(jobId: string): Promise<ComparisonJobStatusInfo> {
+    // Handle cache-hit IDs (format: "cached:<comparisonId>")
+    if (jobId.startsWith('cached:')) {
+      const comparisonId = jobId.slice(7);
+      return {
+        jobId,
+        status: 'completed',
+        progress: 100,
+        result: {
+          comparisonId,
+          sourceVersionId: '',
+          targetVersionId: '',
+          chunksCompared: 0,
+          processingTimeMs: 0,
+          impactScore: 0,
+          success: true,
+        },
+      };
+    }
+
     try {
       const job = await this.comparisonQueue.getJob(jobId);
 

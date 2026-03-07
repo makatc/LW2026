@@ -16,6 +16,7 @@ import { DashboardIntegrationModule } from './dashboard-integration/dashboard-in
 import { DocumentsModule } from './documents/documents.module';
 import { ComparisonModule } from './comparison/comparison.module';
 import { ReportsModule } from './reports/reports.module';
+import { LegalModule } from './legal/legal.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ReportsModule } from './reports/reports.module';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
+        ssl: configService.get('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
         entities: [Document, DocumentVersion, DocumentChunk, SourceSnapshot, ComparisonResult],
         synchronize: false,
         migrations: ['dist/migrations/*.js'],
@@ -55,6 +57,7 @@ import { ReportsModule } from './reports/reports.module';
     DocumentsModule,
     ComparisonModule,
     ReportsModule,
+    LegalModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -22,22 +22,20 @@ export interface StakeholderAnalysis {
 
 /**
  * LlmAnalysisService
- * Calls Groq API (llama-3.1-8b-instant) via HTTP for AI-powered analysis.
- * Groq API is OpenAI-compatible so uses the /chat/completions endpoint.
- * Falls back to stub responses when GROQ_API_KEY is not configured.
+ * Calls Google Gemini API (gemini-2.0-flash) via HTTP for AI-powered analysis.
+ * Falls back to stub responses when GEMINI_API_KEY is not configured.
  */
 @Injectable()
 export class LlmAnalysisService {
   private readonly logger = new Logger(LlmAnalysisService.name);
   private readonly apiKey: string | undefined;
-  private readonly apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  private readonly model = 'llama-3.1-8b-instant';
+  private readonly model = 'gemini-2.0-flash';
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('GROQ_API_KEY');
+    this.apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (!this.apiKey) {
       this.logger.warn(
-        'GROQ_API_KEY not configured — LLM features will use fallback responses.',
+        'GEMINI_API_KEY not configured — LLM features will use fallback responses.',
       );
     }
   }
@@ -78,7 +76,7 @@ Genera un resumen ejecutivo (máximo 300 palabras) que:
 
 Responde SOLO con el texto del resumen, sin encabezados ni listas.`;
 
-    return this.callGroq(prompt, this.stubSummary(chunkDiffs, sourceTitle, targetTitle));
+    return this.callGemini(prompt, this.stubSummary(chunkDiffs, sourceTitle, targetTitle));
   }
 
   /**
@@ -124,7 +122,7 @@ Identifica las entidades afectadas. Responde en formato JSON estricto con esta e
 
 Responde SOLO con el JSON. No incluyas texto adicional antes o después.`;
 
-    const responseText = await this.callGroq(prompt, '');
+    const responseText = await this.callGemini(prompt, '');
 
     try {
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -132,34 +130,33 @@ Responde SOLO con el JSON. No incluyas texto adicional antes o después.`;
         return JSON.parse(jsonMatch[0]) as StakeholderAnalysis;
       }
     } catch (e) {
-      this.logger.error('Failed to parse stakeholder JSON from Groq response', e);
+      this.logger.error('Failed to parse stakeholder JSON from Gemini response', e);
     }
 
     return this.stubStakeholderAnalysis();
   }
 
-  private async callGroq(prompt: string, fallback: string): Promise<string> {
+  private async callGemini(prompt: string, fallback: string): Promise<string> {
     try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
       const response = await axios.post(
-        this.apiUrl,
+        url,
         {
-          model: this.model,
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 1024,
-          temperature: 0.2,
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1024,
+          },
         },
         {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'content-type': 'application/json',
-          },
+          headers: { 'content-type': 'application/json' },
           timeout: 30000,
         },
       );
 
-      return (response.data as any).choices?.[0]?.message?.content ?? fallback;
+      return (response.data as any).candidates?.[0]?.content?.parts?.[0]?.text ?? fallback;
     } catch (error) {
-      this.logger.error('Groq API call failed', (error as any)?.message);
+      this.logger.error('Gemini API call failed', (error as any)?.message);
       return fallback;
     }
   }
@@ -193,14 +190,14 @@ Responde SOLO con el JSON. No incluyas texto adicional antes o después.`;
       .map(([t, n]) => `${n} ${t.replace(/_/g, ' ')}`)
       .join(', ');
 
-    return `Comparación entre "${sourceTitle}" y "${targetTitle}": se detectaron ${total} secciones con cambios${typeStr ? ` (${typeStr})` : ''}. Configure GROQ_API_KEY en el archivo .env para obtener un resumen generado por IA.`;
+    return `Comparación entre "${sourceTitle}" y "${targetTitle}": se detectaron ${total} secciones con cambios${typeStr ? ` (${typeStr})` : ''}. Configure GEMINI_API_KEY en el archivo .env para obtener un resumen generado por IA.`;
   }
 
   private stubStakeholderAnalysis(): StakeholderAnalysis {
     return {
       entities: [],
       summary:
-        'Configure GROQ_API_KEY en el archivo .env para activar el análisis de partes interesadas con IA.',
+        'Configure GEMINI_API_KEY en el archivo .env para activar el análisis de partes interesadas con IA.',
       overallImpact: 'neutro',
     };
   }

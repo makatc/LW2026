@@ -98,16 +98,22 @@ export class DatabaseMigrationService implements OnModuleInit {
 
             let count = 0;
             for (const [category, names] of Object.entries(commissions)) {
+                const categoryPrefix = category.toLowerCase()
+                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '');
+
                 for (const name of names) {
-                    const slug = name.toLowerCase()
+                    const nameSlug = name.toLowerCase()
                         .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
                         .replace(/[^a-z0-9]+/g, '-') // replace non-alphanum with dashes
                         .replace(/^-+|-+$/g, ''); // trim dashes
+                    const slug = `${categoryPrefix}-${nameSlug}`;
 
                     await pool.query(
                         `INSERT INTO sutra_commissions (name, slug, category) 
                          VALUES ($1, $2, $3)
-                         ON CONFLICT (name) DO UPDATE SET category = EXCLUDED.category`,
+                         ON CONFLICT (name) DO UPDATE SET slug = EXCLUDED.slug, category = EXCLUDED.category`,
                         [name, slug, category]
                     );
                     count++;

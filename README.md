@@ -37,7 +37,7 @@ cd apps/legitwatch-comparator
 npm install
 
 # 3. Configurar variables de entorno
-# Ver: apps/legitwatch-comparator/.env (ajustar GROQ_API_KEY y GEMINI_API_KEY)
+# Ver: apps/legitwatch-comparator/.env (agregar GEMINI_API_KEY)
 
 # 4. Ejecutar migraciones del comparador
 npm run migration:run
@@ -80,7 +80,7 @@ LWBETA (Monorepo)
 - Backend: NestJS 11, TypeORM, BullMQ, diff-match-patch
 - Frontend: Next.js 14, TailwindCSS, @tanstack/react-query, lucide-react
 - DB: PostgreSQL 16 (pgvector), Redis 7
-- LLM: Groq API (resúmenes), Google Gemini API (OCR de PDFs escaneados)
+- LLM: Google Gemini API — gemini-2.0-flash (resúmenes ejecutivos, análisis de impacto y OCR de PDFs escaneados)
 - Package manager: npm (en este entorno; el proyecto usa Turborepo)
 
 **Puertos Docker (host → container):**
@@ -105,8 +105,8 @@ LWBETA (Monorepo)
 - Diff carácter a carácter con `<ins>` / `<del>`
 - Vista Redline (unificada) y Lado a Lado sincronizada
 - Búsqueda integrada con highlight en tiempo real
-- Detección de 12 tipos de cambios semánticos
-- Resumen ejecutivo generado por IA (Groq/llama-3.1-8b-instant)
+- Detección de 10 tipos de cambios semánticos (obligation_shift, sanction_changed, definition_modified, scope_expanded/reduced, requirement_added/removed, deadline_changed, exemption changes)
+- Resumen ejecutivo generado por IA (Gemini 2.0 Flash)
 - Análisis de impacto por partes afectadas (agencias, grupos, etc.)
 - Procesamiento asíncrono con BullMQ (no bloquea la UI)
 
@@ -169,10 +169,13 @@ cd apps/legitwatch-comparator && npm test
 
 Estado actual (Marzo 2026):
 - Servicios: sutra-dashboard (3000), sutra-monitor (3001), legitwatch-comparator (3002)
-- Comparador MVP completo: diff, side-by-side, LLM summary, stakeholder analysis, OCR
+- Comparador MVP completo: diff, side-by-side, LLM summary, stakeholder analysis, OCR, text comparison
 - Docker: PostgreSQL 16 pgvector en puerto 5433, Redis 7 en puerto 6380
-- LLM: Groq (resumen ejecutivo) + Gemini (OCR) — funciona con stubs si no hay keys
-- Pendiente: exportación PDF real, comparación por texto pegado
+- LLM: Google Gemini 2.0 Flash — una sola key (`GEMINI_API_KEY`) cubre resúmenes, análisis de impacto y OCR
+- Layout 70/30: diffs a la izquierda, inteligencia (resumen + stakeholders) a la derecha en panel sticky
+- Progress bar real durante comparación asíncrona (BullMQ)
+- Caché: no re-procesa comparaciones ya completadas entre los mismos documentos
+- Pendiente: exportación PDF real (actualmente mock)
 
 ---
 
@@ -184,4 +187,4 @@ Propietario — LegalWatch / Oficina de Servicios Legislativos de Puerto Rico
 
 **Construido para transparencia en el proceso legislativo de Puerto Rico** 🇵🇷
 
-**Última actualización:** Marzo 2026
+**Última actualización:** Marzo 2026 — Fase 1+2 completadas (Gemini integrado, layout 70/30, progress bar, caché, detector semántico mejorado)

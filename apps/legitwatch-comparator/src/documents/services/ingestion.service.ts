@@ -47,12 +47,16 @@ export class IngestionService {
    * @param versionTag Optional version tag
    * @returns Job ID
    */
-  async queueIngestion(snapshotId: string, versionTag?: string): Promise<string> {
+  async queueIngestion(
+    snapshotId: string,
+    versionTag?: string,
+    extras?: { fileBufferBase64?: string; originalFileName?: string },
+  ): Promise<string> {
     this.logger.log(`Queueing ingestion for snapshot ${snapshotId}`);
 
     const job = await this.ingestionQueue.add(
       'ingest-document',
-      { snapshotId, versionTag },
+      { snapshotId, versionTag, ...extras },
       {
         attempts: 3, // Retry up to 3 times
         backoff: {

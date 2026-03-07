@@ -9,11 +9,19 @@ export class ConfigRepository {
             if (result.rows[0]) return result.rows[0];
 
             // Create new for this user
-            const insert = await pool.query(
-                'INSERT INTO monitor_configs (user_id) VALUES ($1) ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW() RETURNING *',
-                [userId]
-            );
-            return insert.rows[0];
+            try {
+                const insert = await pool.query(
+                    'INSERT INTO monitor_configs (user_id) VALUES ($1) RETURNING *',
+                    [userId]
+                );
+                return insert.rows[0];
+            } catch (err: any) {
+                if (err.code === '23505') {
+                    const retry = await pool.query('SELECT * FROM monitor_configs WHERE user_id = $1 LIMIT 1', [userId]);
+                    return retry.rows[0];
+                }
+                throw err;
+            }
         }
 
         // Fallback: Default global config (where user_id is null)

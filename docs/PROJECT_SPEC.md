@@ -1,5 +1,17 @@
 # LEGALWATCH COMPARATOR 2.0 - TECHNICAL SPECIFICATION (MASTER PLAN)
 
+> **Nota de implementación (Marzo 2026):** Este documento es la especificación original. La implementación actual difiere en algunos puntos — la arquitectura construida es técnicamente superior a lo especificado aquí. Ver detalles:
+>
+> | Spec original | Implementación actual | Estado |
+> |---|---|---|
+> | Next.js Full-Stack (Server Actions) | NestJS 11 + BullMQ separado (microservicios) | Desviación aceptada — mejor arquitectura |
+> | `@monaco-editor/react` | DiffViewerPanel custom (diff2html + scroll sync) | Reemplazado — funcional y más liviano |
+> | OpenAI / GPT-4 | Google Gemini 2.0 Flash | Reemplazado — una sola key para LLM + OCR |
+> | `tesseract.js` para OCR | Gemini multimodal (`inline_data` PDF) | Reemplazado — mejor calidad en PDFs legales |
+> | `diff-match-patch` + `cleanupSemantic` | Implementado + side-by-side en backend | Completo |
+> | Análisis de impacto JSON estricto | `StakeholderAnalysis` con entidades, timeframes | Completo |
+> | Layout 70/30 con Monaco | Layout 70/30 con DiffViewerPanel + panel sticky | Completo |
+
 ## 1. PROJECT OVERVIEW
 **Product Name:** LegitWatch Comparador 2.0
 **Role:** Senior Staff Engineer / LegalTech Architect

@@ -11,6 +11,7 @@ import { ComparisonController } from './comparison.controller';
 import { DiffService, ComparisonService } from './services';
 import { LlmAnalysisService } from './services/llm-analysis.service';
 import { CompareProcessor } from './processors/compare.processor';
+import { LegalModule } from '../legal/legal.module';
 
 /**
  * ComparisonModule
@@ -19,6 +20,7 @@ import { CompareProcessor } from './processors/compare.processor';
 @Module({
   imports: [
     ConfigModule,
+    LegalModule,
     TypeOrmModule.forFeature([
       DocumentVersion,
       DocumentChunk,

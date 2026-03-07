@@ -15,6 +15,8 @@ import { LlmAnalysisService } from '../services/llm-analysis.service';
 import { StubSemanticChangeDetector } from '../interfaces';
 import type { SemanticChangeDetector } from '../interfaces';
 import type { ComparisonJobData, ComparisonJobResult } from '../dto';
+import { LegalComparatorService } from '../../legal/legal-comparator.service';
+import { ComparisonMode } from '../../legal/legal.types';
 
 @Processor('comparison-queue', {
   concurrency: 1,
@@ -32,6 +34,7 @@ export class CompareProcessor extends WorkerHost {
     private readonly comparisonRepository: Repository<ComparisonResult>,
     private readonly diffService: DiffService,
     private readonly llmAnalysisService: LlmAnalysisService,
+    private readonly legalComparator: LegalComparatorService,
   ) {
     super();
     this.semanticDetector = new StubSemanticChangeDetector();
@@ -76,6 +79,8 @@ export class CompareProcessor extends WorkerHost {
       const sourceTitle = sourceVersion.document?.title ?? 'Documento Original';
       const targetTitle = targetVersion.document?.title ?? 'Documento Nuevo';
 
+      await job.updateProgress(10);
+
       // Step 2: Fetch chunks for both versions
       const [sourceChunks, targetChunks] = await Promise.all([
         this.chunkRepository.find({
@@ -92,16 +97,79 @@ export class CompareProcessor extends WorkerHost {
         `Comparing ${sourceChunks.length} source chunks with ${targetChunks.length} target chunks`,
       );
 
-      // Step 3: Align chunks by label
+      await job.updateProgress(20);
+
+      // Step 2b: Legal Patch Engine (feature-flagged)
+      // When enabled, reconstruct full text from chunks and run the patch engine.
+      // If mode === PATCH, we save results directly and skip the normal diff pipeline.
+      if (process.env.LEGAL_PATCH_ENGINE_ENABLED === 'true') {
+        const baseText = sourceChunks.map((c) => c.content).join('\n\n');
+        const modifierText = targetChunks.map((c) => c.content).join('\n\n');
+
+        const legal = await this.legalComparator.compare(baseText, modifierText);
+
+        if (legal.mode === ComparisonMode.PATCH) {
+          this.logger.log(
+            `PATCH mode detected (confidence ${legal.modeClassification.confidence.toFixed(2)}), saving patch result`,
+          );
+
+          const chunkComparisons = legal.affectedUnits.map((u) => ({
+            sourceChunkId: u.id,
+            targetChunkId: u.id,
+            label: u.label,
+            diffHtml: u.diffHtml,
+            sourceSideHtml: u.sourceSideHtml,
+            targetSideHtml: u.targetSideHtml,
+            changeType: u.changeKind,
+            impactScore: u.impactScore,
+          }));
+
+          const comparison = this.comparisonRepository.create({
+            sourceVersionId,
+            targetVersionId,
+            status: ComparisonStatus.COMPLETED,
+            alignmentMap: {},
+            chunkComparisons,
+            summary: legal.summary,
+            impactScore: legal.impactScore,
+            metadata: {
+              legalMode: legal.mode,
+              modeClassification: legal.modeClassification,
+              patchReport: legal.patchReport,
+              operationCount: legal.operations?.length ?? 0,
+              sourceTitle,
+              targetTitle,
+            },
+          });
+
+          const saved = await this.comparisonRepository.save(comparison);
+          const processingTime = Date.now() - startTime;
+
+          return {
+            comparisonId: saved.id,
+            sourceVersionId,
+            targetVersionId,
+            chunksCompared: chunkComparisons.length,
+            processingTimeMs: processingTime,
+            impactScore: legal.impactScore,
+            success: true,
+          };
+        }
+        // FULL mode → fall through to existing pipeline below
+      }
+
+      // Step 3: Align chunks by label + Jaccard similarity
       const alignmentMap = this.alignChunks(sourceChunks, targetChunks);
 
-      // Step 4: Compare aligned chunks (unified + side-by-side)
+      // Step 4: Compare aligned chunks (unified + side-by-side) + surface unmatched chunks
       const chunkComparisons = await this.compareAlignedChunks(
         sourceChunks,
         targetChunks,
         alignmentMap,
         detectSemanticChanges,
       );
+
+      await job.updateProgress(60);
 
       // Step 5: Calculate overall impact score
       const impactScore = this.calculateOverallImpactScore(chunkComparisons);
@@ -117,6 +185,8 @@ export class CompareProcessor extends WorkerHost {
         targetTitle,
       );
 
+      await job.updateProgress(80);
+
       // Step 7: Extract added/removed text for stakeholder analysis
       const { addedText, removedText } = this.extractAddedRemovedText(chunkComparisons);
       const stakeholderAnalysis = await this.llmAnalysisService.analyzeStakeholders(
@@ -124,6 +194,8 @@ export class CompareProcessor extends WorkerHost {
         removedText,
         `${sourceTitle} → ${targetTitle}`,
       );
+
+      await job.updateProgress(90);
 
       // Step 8: Save ComparisonResult
       const comparison = this.comparisonRepository.create({
@@ -191,34 +263,79 @@ export class CompareProcessor extends WorkerHost {
     }
   }
 
+  /**
+   * Align source chunks to target chunks using a 3-tier strategy:
+   *
+   * Tier 1 — Exact normalized label match  (e.g. "artículo 5" == "ART. 5")
+   * Tier 2 — Jaccard content similarity    (catches rewritten/renumbered articles)
+   * Tier 3 — Positional (index-based)      (last resort for generic PDFs)
+   *
+   * Returns a map of sourceChunkId → targetChunkId.
+   */
   private alignChunks(
     sourceChunks: DocumentChunk[],
     targetChunks: DocumentChunk[],
   ): Record<string, string> {
     const alignmentMap: Record<string, string> = {};
+    const usedTargetIds = new Set<string>();
 
-    // Attempt label-based alignment first
-    const targetByLabel = new Map<string, DocumentChunk>();
+    // --- Tier 1: normalized label matching ---
+    const targetByNormalizedLabel = new Map<string, DocumentChunk>();
     for (const chunk of targetChunks) {
-      // Only add first occurrence so early chunks aren't shadowed by later ones
-      if (!targetByLabel.has(chunk.label.toLowerCase())) {
-        targetByLabel.set(chunk.label.toLowerCase(), chunk);
-      }
-    }
-    for (const sourceChunk of sourceChunks) {
-      const targetChunk = targetByLabel.get(sourceChunk.label.toLowerCase());
-      if (targetChunk) {
-        alignmentMap[sourceChunk.id] = targetChunk.id;
+      const key = this.normalizeLabel(chunk.label);
+      if (!targetByNormalizedLabel.has(key)) {
+        targetByNormalizedLabel.set(key, chunk);
       }
     }
 
-    // Fallback: if fewer than 50 % of source chunks matched by label,
-    // use positional (index-based) alignment instead so generic PDFs
-    // (labelled "Párrafo 1", "Párrafo 2" …) are still fully compared.
-    const matchRatio = Object.keys(alignmentMap).length / (sourceChunks.length || 1);
-    if (matchRatio < 0.5) {
+    for (const sourceChunk of sourceChunks) {
+      const key = this.normalizeLabel(sourceChunk.label);
+      const targetChunk = targetByNormalizedLabel.get(key);
+      if (targetChunk && !usedTargetIds.has(targetChunk.id)) {
+        alignmentMap[sourceChunk.id] = targetChunk.id;
+        usedTargetIds.add(targetChunk.id);
+      }
+    }
+
+    const tier1Ratio = Object.keys(alignmentMap).length / (sourceChunks.length || 1);
+    this.logger.debug(`Tier 1 (label) matched ${Math.round(tier1Ratio * 100)}% of chunks`);
+
+    // --- Tier 2: Jaccard content similarity for unmatched source chunks ---
+    const unmatchedSource = sourceChunks.filter((c) => !alignmentMap[c.id]);
+    const unmatchedTarget = targetChunks.filter((c) => !usedTargetIds.has(c.id));
+
+    if (unmatchedSource.length > 0 && unmatchedTarget.length > 0) {
+      const JACCARD_THRESHOLD = 0.25; // at least 25% word overlap
+
+      for (const src of unmatchedSource) {
+        let bestScore = JACCARD_THRESHOLD;
+        let bestTarget: DocumentChunk | null = null;
+
+        for (const tgt of unmatchedTarget) {
+          if (usedTargetIds.has(tgt.id)) continue;
+          const score = this.jaccardSimilarity(src.content, tgt.content);
+          if (score > bestScore) {
+            bestScore = score;
+            bestTarget = tgt;
+          }
+        }
+
+        if (bestTarget) {
+          alignmentMap[src.id] = bestTarget.id;
+          usedTargetIds.add(bestTarget.id);
+        }
+      }
+
+      const tier2Matched = Object.keys(alignmentMap).length - Math.round(tier1Ratio * sourceChunks.length);
+      this.logger.debug(`Tier 2 (Jaccard) matched ${tier2Matched} additional chunks`);
+    }
+
+    const totalRatio = Object.keys(alignmentMap).length / (sourceChunks.length || 1);
+
+    // --- Tier 3: positional fallback only for generic docs with very low match ---
+    if (totalRatio < 0.4) {
       this.logger.warn(
-        `Label-based alignment matched only ${Math.round(matchRatio * 100)}% of chunks — falling back to positional alignment`,
+        `Label+Jaccard alignment matched only ${Math.round(totalRatio * 100)}% — falling back to positional alignment`,
       );
       const positionalMap: Record<string, string> = {};
       const len = Math.min(sourceChunks.length, targetChunks.length);
@@ -228,7 +345,61 @@ export class CompareProcessor extends WorkerHost {
       return positionalMap;
     }
 
+    this.logger.log(
+      `Alignment complete: ${Object.keys(alignmentMap).length}/${sourceChunks.length} source chunks matched`,
+    );
     return alignmentMap;
+  }
+
+  /**
+   * Normalize a chunk label for fuzzy matching.
+   * "ART. 5A" == "Artículo 5A" == "ARTÍCULO 5A"
+   */
+  private normalizeLabel(label: string): string {
+    return label
+      .toLowerCase()
+      // Normalize accented chars
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      // Expand common abbreviations
+      .replace(/\bart\.\s*/g, 'articulo ')
+      .replace(/\bcap\.\s*/g, 'capitulo ')
+      .replace(/\bsec\.\s*/g, 'seccion ')
+      // Remove punctuation and extra spaces
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Jaccard similarity between two text strings (word-level bag-of-words).
+   * Returns a value in [0, 1].
+   */
+  private jaccardSimilarity(a: string, b: string): number {
+    const wordsOf = (text: string): Set<string> => {
+      const tokens = text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 3); // skip stop words / short tokens
+      return new Set(tokens);
+    };
+
+    const setA = wordsOf(a);
+    const setB = wordsOf(b);
+
+    if (setA.size === 0 && setB.size === 0) return 1;
+    if (setA.size === 0 || setB.size === 0) return 0;
+
+    let intersection = 0;
+    for (const word of setA) {
+      if (setB.has(word)) intersection++;
+    }
+
+    const union = setA.size + setB.size - intersection;
+    return intersection / union;
   }
 
   private async compareAlignedChunks(
@@ -260,10 +431,27 @@ export class CompareProcessor extends WorkerHost {
     }> = [];
 
     const targetById = new Map(targetChunks.map((c) => [c.id, c]));
+    const matchedTargetIds = new Set(Object.values(alignmentMap));
 
     for (const sourceChunk of sourceChunks) {
       const targetChunkId = alignmentMap[sourceChunk.id];
-      if (!targetChunkId) continue;
+
+      if (!targetChunkId) {
+        // Source chunk has no match in target → REMOVED
+        const removedDiff = this.diffService.generateDiff(sourceChunk.content, '');
+        const removedSide = this.diffService.generateSideBySideDiff(sourceChunk.content, '');
+        comparisons.push({
+          sourceChunkId: sourceChunk.id,
+          targetChunkId: '',
+          label: sourceChunk.label,
+          diffHtml: removedDiff.htmlDiff,
+          sourceSideHtml: removedSide.oldHtml,
+          targetSideHtml: removedSide.newHtml,
+          changeType: 'removed',
+          impactScore: 80,
+        });
+        continue;
+      }
 
       const targetChunk = targetById.get(targetChunkId);
       if (!targetChunk) continue;
@@ -306,6 +494,24 @@ export class CompareProcessor extends WorkerHost {
         changeType,
         impactScore,
       });
+    }
+
+    // Target chunks with no source match → ADDED
+    for (const targetChunk of targetChunks) {
+      if (!matchedTargetIds.has(targetChunk.id)) {
+        const addedDiff = this.diffService.generateDiff('', targetChunk.content);
+        const addedSide = this.diffService.generateSideBySideDiff('', targetChunk.content);
+        comparisons.push({
+          sourceChunkId: '',
+          targetChunkId: targetChunk.id,
+          label: targetChunk.label,
+          diffHtml: addedDiff.htmlDiff,
+          sourceSideHtml: addedSide.oldHtml,
+          targetSideHtml: addedSide.newHtml,
+          changeType: 'added',
+          impactScore: 80,
+        });
+      }
     }
 
     return comparisons;

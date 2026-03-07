@@ -219,7 +219,10 @@ export class UploadService {
     // Auto-ingest if requested (default: true)
     if (options.autoIngest !== false) {
       this.logger.log(`Auto-ingesting snapshot: ${snapshot.id}`);
-      await this.ingestionService.queueIngestion(snapshot.id);
+      await this.ingestionService.queueIngestion(snapshot.id, undefined, {
+        fileBufferBase64: file.buffer.toString('base64'),
+        originalFileName: file.originalname,
+      });
     }
 
     return {

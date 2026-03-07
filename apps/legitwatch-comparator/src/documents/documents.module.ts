@@ -16,6 +16,9 @@ import {
   FileParserService,
   UploadService,
 } from './services';
+import { PdfExtractorService } from './services/pdf-extractor.service';
+import { OcrService } from './services/ocr.service';
+import { DoclingService } from './services/docling.service';
 import { IngestionProcessor } from './processors/ingestion.processor';
 
 /**
@@ -50,6 +53,9 @@ import { IngestionProcessor } from './processors/ingestion.processor';
     StructureDetectorService,
     NormalizerService,
     FileParserService,
+    PdfExtractorService,
+    OcrService,
+    DoclingService,
     UploadService,
     IngestionProcessor,
   ],
@@ -58,6 +64,9 @@ import { IngestionProcessor } from './processors/ingestion.processor';
     StructureDetectorService,
     NormalizerService,
     FileParserService,
+    PdfExtractorService,
+    OcrService,
+    DoclingService,
     UploadService,
   ],
 })
