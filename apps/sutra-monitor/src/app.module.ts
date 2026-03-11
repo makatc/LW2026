@@ -14,6 +14,7 @@ import { QueueModule } from './modules/queue/queue.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { DatabaseMigrationService } from './database-migration.service';
+import { ScrapersModule } from './scrapers/scrapers.module';
 
 @Module({
     imports: [
@@ -29,7 +30,8 @@ import { DatabaseMigrationService } from './database-migration.service';
         ApiModule,
         DatabaseModule,
         HealthModule,
-        // QueueModule,
+        QueueModule,
+        ScrapersModule,
     ],
     controllers: [],
     providers: [

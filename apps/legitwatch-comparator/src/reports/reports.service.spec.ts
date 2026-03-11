@@ -204,17 +204,16 @@ describe('ReportsService', () => {
       const result = await service.exportToPdf('comparison-1');
 
       expect(result).toBeDefined();
-      expect(result.message).toBe('PDF Generation Pending');
+      expect(result.message).toContain('html-report');
       expect(result.comparisonId).toBe('comparison-1');
-      expect(result.status).toBe('queued');
+      expect(result.status).toBe('deprecated');
     });
 
-    it('should throw NotFoundException when comparison not found', async () => {
+    it('returns deprecated stub even when comparison not found', async () => {
       mockComparisonRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.exportToPdf('non-existent')).rejects.toThrow(
-        NotFoundException,
-      );
+      const result = await service.exportToPdf('non-existent');
+      expect(result.status).toBe('deprecated');
     });
   });
 

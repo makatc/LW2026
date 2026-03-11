@@ -227,3 +227,91 @@ export async function addMeasureToWatchlist(measureId: string) {
         body: JSON.stringify({ measureId }),
     });
 }
+
+// ─── New: Legislators ────────────────────────────────────────────────────────
+
+export async function fetchLegislators(params?: { chamber?: string; party?: string; limit?: number; offset?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.chamber) searchParams.append('chamber', params.chamber);
+    if (params?.party) searchParams.append('party', params.party);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.offset) searchParams.append('offset', params.offset.toString());
+    const qs = searchParams.toString();
+    return fetchWithAuth(`/api/legislators${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchLegislator(id: string) {
+    return fetchWithAuth(`/api/legislators/${id}`);
+}
+
+export async function fetchLegislatorsSummary() {
+    return fetchWithAuth('/api/legislators/summary');
+}
+
+// ─── New: Committees ─────────────────────────────────────────────────────────
+
+export async function fetchCommitteesNew(params?: { chamber?: string; type?: string }) {
+    const searchParams = new URLSearchParams();
+    if (params?.chamber) searchParams.append('chamber', params.chamber);
+    if (params?.type) searchParams.append('type', params.type);
+    const qs = searchParams.toString();
+    return fetchWithAuth(`/api/committees${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchCommitteeDetail(id: string) {
+    return fetchWithAuth(`/api/committees/${id}`);
+}
+
+// ─── New: Bills (Enhanced) ───────────────────────────────────────────────────
+
+export async function fetchBillsEnhanced(params?: {
+    bill_type?: string;
+    status?: string;
+    commission?: string;
+    author?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+}) {
+    const searchParams = new URLSearchParams();
+    if (params?.bill_type) searchParams.append('bill_type', params.bill_type);
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.commission) searchParams.append('commission', params.commission);
+    if (params?.author) searchParams.append('author', params.author);
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.offset) searchParams.append('offset', params.offset.toString());
+    const qs = searchParams.toString();
+    return fetchWithAuth(`/api/bills${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchBillDetail(id: string) {
+    return fetchWithAuth(`/api/bills/${id}`);
+}
+
+export async function fetchBillsSummary() {
+    return fetchWithAuth('/api/bills/summary');
+}
+
+// ─── New: Votes ──────────────────────────────────────────────────────────────
+
+export async function fetchVotes(billId: string) {
+    return fetchWithAuth(`/api/votes/${billId}`);
+}
+
+export async function fetchRecentVotes(limit?: number) {
+    return fetchWithAuth(`/api/votes/recent${limit ? `?limit=${limit}` : ''}`);
+}
+
+// ─── New: Scraper Admin ──────────────────────────────────────────────────────
+
+export async function triggerScraper(scraper: string) {
+    return fetchWithAuth('/api/scraper/trigger', {
+        method: 'POST',
+        body: JSON.stringify({ scraper }),
+    });
+}
+
+export async function getScraperStatus() {
+    return fetchWithAuth('/api/scraper/status');
+}

@@ -5,11 +5,28 @@ import { CommissionController, CommissionService } from './commissions.controlle
 import { MonitorConfigModule } from '../config/config.module';
 import { SystemRepository } from '@lwbeta/db';
 import { NotificationModule } from '../notifications/notification.module';
-
 import { IngestModule } from '../ingest/ingest.module';
 
+// New API modules
+import { LegislatorsApiModule } from './legislators/legislators.module';
+import { CommitteesApiModule } from './committees/committees.module';
+import { BillsApiModule } from './bills/bills.module';
+import { VotesApiModule } from './votes/votes.module';
+import { ScraperApiModule } from './scraper/scraper.module';
+import { ChangeEventsApiModule } from './change-events/change-events.module';
+
 @Module({
-    imports: [MonitorConfigModule, IngestModule, NotificationModule],
+    imports: [
+        MonitorConfigModule,
+        IngestModule,
+        NotificationModule,
+        LegislatorsApiModule,
+        CommitteesApiModule,
+        BillsApiModule,
+        VotesApiModule,
+        ScraperApiModule,
+        ChangeEventsApiModule,
+    ],
     controllers: [DashboardController, ApiController, CommissionController],
     providers: [CommissionService, SystemRepository],
 })

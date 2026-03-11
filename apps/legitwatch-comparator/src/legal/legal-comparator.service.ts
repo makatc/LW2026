@@ -35,18 +35,13 @@ import {
 export class LegalComparatorService {
   private readonly logger = new Logger(LegalComparatorService.name);
 
-  /** Feature flag: when false, classify() always returns FULL mode */
-  private readonly enabled: boolean;
-
   constructor(
     private readonly parser: LawParserService,
     private readonly classifier: ModeClassifierService,
     private readonly extractor: PatchExtractorService,
     private readonly applier: PatchApplierService,
     private readonly localDiff: LocalizedDiffService,
-  ) {
-    this.enabled = process.env.LEGAL_PATCH_ENGINE_ENABLED === 'true';
-  }
+  ) {}
 
   /**
    * Compare two law texts.
@@ -61,7 +56,8 @@ export class LegalComparatorService {
     modifierText: string,
     overrideMode?: ComparisonMode,
   ): Promise<LegalComparisonResult> {
-    if (!this.enabled && !overrideMode) {
+    const enabled = process.env.LEGAL_PATCH_ENGINE_ENABLED === 'true';
+    if (!enabled && !overrideMode) {
       // Engine disabled — return stub so caller can fall back to the
       // regular diff pipeline unchanged.
       return this.stubResult(baseText, modifierText);

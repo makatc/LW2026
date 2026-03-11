@@ -35,7 +35,10 @@
     "pg": "^8.11.0",
     "playwright": "^1.42.0",
     "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "axios": ">=1.0.0",
+    "cheerio": ">=1.0.0",
+    "pdf-parse": ">=1.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

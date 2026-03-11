@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Upload,
   FileText,
@@ -217,6 +218,7 @@ function StatCard({
 }
 
 export default function ComparatorPage() {
+  const searchParams = useSearchParams();
   const [activeInputTab, setActiveInputTab] = useState<'upload' | 'text'>('upload');
   const [sourceDoc, setSourceDoc] = useState<UploadedDoc | null>(null);
   const [targetDoc, setTargetDoc] = useState<UploadedDoc | null>(null);
@@ -229,6 +231,39 @@ export default function ComparatorPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ComparisonResult | null>(null);
   const [resultTab, setResultTab] = useState<ResultTab>('cambios');
+  const [autoLoading, setAutoLoading] = useState(false);
+  const autoLoadDone = useRef(false);
+
+  // Auto-load PDFs from query params (e.g. from /medidas/[id] → Comparar versiones)
+  useEffect(() => {
+    if (autoLoadDone.current) return;
+    const sourcePdf = searchParams.get('source_pdf');
+    const targetPdf = searchParams.get('target_pdf');
+    if (!sourcePdf || !targetPdf) return;
+
+    autoLoadDone.current = true;
+    const sourceLabel = searchParams.get('source_label') || 'Versión anterior';
+    const targetLabel = searchParams.get('target_label') || 'Versión nueva';
+
+    async function fetchAndUpload(url: string, label: string, type: 'source' | 'target') {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`No se pudo descargar el PDF: ${label}`);
+      const blob = await res.blob();
+      const fileName = `${label}.pdf`;
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      await handleFileUpload(file, type);
+    }
+
+    setAutoLoading(true);
+    setError(null);
+    Promise.all([
+      fetchAndUpload(sourcePdf, sourceLabel, 'source'),
+      fetchAndUpload(targetPdf, targetLabel, 'target'),
+    ])
+      .catch(err => setError(err instanceof Error ? err.message : 'Error al cargar los PDFs'))
+      .finally(() => setAutoLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFileUpload = async (file: File, type: 'source' | 'target') => {
     const setUploading = type === 'source' ? setUploadingSource : setUploadingTarget;
@@ -391,6 +426,20 @@ export default function ComparatorPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+
+      {/* ── Auto-load banner ── */}
+      {autoLoading && (
+        <div className="flex items-center gap-3 px-5 py-4 bg-indigo-50 border border-indigo-200 rounded-xl text-sm text-indigo-800">
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          <span>Cargando versiones del PDF automáticamente desde la medida…</span>
+        </div>
+      )}
+      {!autoLoading && searchParams.get('source_pdf') && (sourceDoc || targetDoc) && (
+        <div className="flex items-center gap-3 px-5 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+          <CheckCircle className="w-4 h-4 shrink-0" />
+          <span>PDFs cargados desde la medida. Presiona <strong>Comparar</strong> para analizar.</span>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between">
