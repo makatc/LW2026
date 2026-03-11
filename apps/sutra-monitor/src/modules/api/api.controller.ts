@@ -114,7 +114,7 @@ export class ApiController {
     async listBills() {
         const result = await pool.query(
             `SELECT sm.id, sm.numero, sm.titulo, sm.bill_type, sm.status, sm.fecha,
-                    sm.author, sm.author_names, sm.subjects, sm.source_url,
+                    sm.author, sm.author_names, sm.source_url,
                     sc.name AS commission_name
              FROM sutra_measures sm
              LEFT JOIN sutra_commissions sc ON sc.id = sm.comision_id
@@ -122,6 +122,20 @@ export class ApiController {
              LIMIT 100`
         );
         return { bills: result.rows };
+    }
+
+    @Get('api/bills/summary')
+    @Public()
+    async getBillSummary() {
+        const result = await pool.query(
+            `SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE bill_type = 'bill') AS bills_count,
+                COUNT(*) FILTER (WHERE bill_type = 'resolution') AS resolutions_count,
+                COUNT(*) FILTER (WHERE last_seen_at >= NOW() - INTERVAL '7 days') AS recent_count
+             FROM sutra_measures`
+        );
+        return result.rows[0];
     }
 
     @Get('api/bills/:id')

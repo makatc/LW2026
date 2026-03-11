@@ -14,6 +14,10 @@ import { BillsApiModule } from './bills/bills.module';
 import { VotesApiModule } from './votes/votes.module';
 import { ScraperApiModule } from './scraper/scraper.module';
 import { ChangeEventsApiModule } from './change-events/change-events.module';
+import { InteractionsApiModule } from './interactions/interactions.module';
+import { IntelligenceModule } from './intelligence/intelligence.module';
+import { ComplianceModule } from './compliance/compliance.module';
+import { DojRegistryModule } from './doj-registry/doj-registry.module';
 
 @Module({
     imports: [
@@ -26,6 +30,10 @@ import { ChangeEventsApiModule } from './change-events/change-events.module';
         VotesApiModule,
         ScraperApiModule,
         ChangeEventsApiModule,
+        InteractionsApiModule,
+        IntelligenceModule,
+        ComplianceModule,
+        DojRegistryModule,
     ],
     controllers: [DashboardController, ApiController, CommissionController],
     providers: [CommissionService, SystemRepository],
