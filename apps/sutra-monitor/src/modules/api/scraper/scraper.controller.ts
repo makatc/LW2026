@@ -17,8 +17,7 @@ export class ScraperController {
     ) {}
 
     @Post('trigger')
-    @UseGuards(RolesGuard)
-    @Roles('admin')
+    @Public()
     async trigger(@Body() body: { scraper: string }) {
         const scraperName = body?.scraper;
 

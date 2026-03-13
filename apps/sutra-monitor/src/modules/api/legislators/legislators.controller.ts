@@ -1,13 +1,14 @@
-import { Controller, Get, Post, Patch, Param, Query, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards, Req } from '@nestjs/common';
 import { LegislatorsApiService } from './legislators.service';
 import { Public } from '../../auth/decorators';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
 @Controller('api/legislators')
-@Public()
 export class LegislatorsController {
-    constructor(private readonly service: LegislatorsApiService) {}
+    constructor(private readonly service: LegislatorsApiService) { }
 
     @Get()
+    @Public()
     findAll(
         @Query('chamber') chamber?: string,
         @Query('party') party?: string,
@@ -27,13 +28,15 @@ export class LegislatorsController {
     }
 
     @Get('summary')
+    @Public()
     getSummary() {
         return this.service.getSummary();
     }
 
     @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.service.findOne(id);
+    @Public()
+    findOne(@Param('id') id: string, @Req() req: any) {
+        return this.service.findOne(id, req?.user?.userId);
     }
 
     @Post()
@@ -55,9 +58,27 @@ export class LegislatorsController {
         return this.service.update(id, body);
     }
 
+    @Patch(':id/private-metadata')
+    @UseGuards(JwtAuthGuard)
+    async updatePrivateMetadata(
+        @Param('id') id: string,
+        @Body() body: Record<string, any>,
+        @Req() req: any
+    ) {
+        try {
+            if (!req.user || !req.user.userId) {
+                return { error: 'Missing user info', reqUser: req.user };
+            }
+            return await this.service.updatePrivateMetadata(id, req.user.userId, body);
+        } catch (err: any) {
+            return { error: err.message, stack: err.stack };
+        }
+    }
+
     // ─── Staff ────────────────────────────────────────────────────────────────
 
     @Get(':id/staff')
+    @Public()
     getStaff(@Param('id') legislatorId: string) {
         return this.service.getStaff(legislatorId);
     }
@@ -73,6 +94,7 @@ export class LegislatorsController {
     // ─── Committees ───────────────────────────────────────────────────────────
 
     @Get(':id/committees')
+    @Public()
     getCommittees(@Param('id') legislatorId: string) {
         return this.service.getCommittees(legislatorId);
     }
@@ -80,6 +102,7 @@ export class LegislatorsController {
     // ─── Interactions (shortcut from legislator context) ──────────────────────
 
     @Get(':id/interactions')
+    @Public()
     getInteractions(
         @Param('id') legislatorId: string,
         @Query('limit') limit?: string,
@@ -94,11 +117,13 @@ export class LegislatorsController {
     // ─── Intelligence ─────────────────────────────────────────────────────────
 
     @Get(':id/intelligence-profile')
+    @Public()
     getIntelligenceProfile(@Param('id') legislatorId: string) {
         return this.service.getIntelligenceProfile(legislatorId);
     }
 
     @Get(':id/positions')
+    @Public()
     getPositions(@Param('id') legislatorId: string) {
         return this.service.getPositions(legislatorId);
     }

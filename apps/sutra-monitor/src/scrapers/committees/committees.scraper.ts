@@ -58,8 +58,8 @@ export class CommitteesScraper implements BaseScraper {
         const committees: RawCommittee[] = [];
 
         const sources = [
-            { url: 'https://senado.pr.gov/comisiones/', chamber: 'upper' as const },
-            { url: 'https://camara.pr.gov/comisiones/', chamber: 'lower' as const },
+            { url: 'https://senado.pr.gov/comisiones', chamber: 'upper' as const },
+            { url: 'https://camara.registrok12.com/comisiones/', chamber: 'lower' as const },
         ];
 
         for (const source of sources) {
@@ -81,7 +81,7 @@ export class CommitteesScraper implements BaseScraper {
 
         // Try to find committee list items
         const selectors = [
-            '.comision-item', '.committee-item', '.comisiones-list li',
+            '.item-cate', '.comision-item', '.committee-item', '.comisiones-list li',
             'article.comision', '.wp-block-columns .wp-block-column',
             'ul.comisiones li', 'table.comisiones tr',
         ];
@@ -93,11 +93,15 @@ export class CommitteesScraper implements BaseScraper {
         }
 
         if (items.length === 0) {
-            // Fallback: look for links containing "comision" text
+            // Fallback: look for links containing "comisión" text
             $('a').each((_, link) => {
                 const text = $(link).text().trim();
                 const href = $(link).attr('href') || '';
-                if ((text.toLowerCase().includes('comisión') || text.toLowerCase().includes('comision')) && text.length > 10) {
+                if ((text.toLowerCase().includes('comisión') || text.toLowerCase().includes('comision')) && 
+                    text.length > 10 && text.length < 100 &&
+                    !text.toLowerCase().includes('asistencia') && 
+                    !text.toLowerCase().includes('audiencia') &&
+                    !text.toLowerCase().includes('calendario')) {
                     committees.push({
                         name: text.replace(/Comisión\s+de\s+/i, 'Comisión de ').trim(),
                         chamber,
@@ -111,15 +115,21 @@ export class CommitteesScraper implements BaseScraper {
         } else {
             items.each((_: number, item: any) => {
                 const $item = $(item);
-                const nameSelectors = ['h2', 'h3', 'h4', '.name', 'a', 'strong'];
+                const nameSelectors = ['h3 a', 'h2 a', 'h3', 'h2', 'h4', '.name', 'a', 'strong'];
                 let name = '';
+                let href = '';
+                
                 for (const sel of nameSelectors) {
-                    name = $item.find(sel).first().text().trim();
-                    if (name.length > 5) break;
+                    const $el = $item.find(sel).first();
+                    name = $el.text().trim();
+                    if (name.length > 5) {
+                        href = $el.attr('href') || $item.find('a').first().attr('href') || '';
+                        break;
+                    }
                 }
-                if (!name) return;
+                
+                if (!name || name.toLowerCase().includes('asistencia')) return;
 
-                const href = $item.find('a').first().attr('href');
                 const detailUrl = href
                     ? href.startsWith('http') ? href : new URL(href, listUrl).href
                     : undefined;
@@ -157,47 +167,62 @@ export class CommitteesScraper implements BaseScraper {
     private async scrapeCommitteeDetail(url: string, base: RawCommittee): Promise<RawCommittee> {
         const $ = await this.http.getHtml(url);
         const members: string[] = [];
-        let chairName: string | undefined;
+        let chairName: string | undefined = base.chair_name;
 
-        // Detect chair
-        const chairPatterns = ['presidente', 'presidenta', 'chair', 'presidente de comisión'];
-        $('*').each((_, el) => {
-            const text = $(el).text().trim();
-            const lower = text.toLowerCase();
-            for (const pattern of chairPatterns) {
-                if (lower.includes(pattern) && text.length < 200) {
-                    // Look for the next sibling or nearby name
-                    const next = $(el).next().text().trim();
-                    if (next.length > 5 && next.length < 60) {
-                        chairName = next;
-                    }
-                    break;
+        // New House portal selectors
+        if (url.includes('registrok12.com')) {
+            $('.item-member h4').each((_, el) => {
+                const text = $(el).text().trim();
+                members.push(text);
+                
+                // Often the card has the role too, or the first card is the chair
+                // But let's look for "Presidente" in the card text
+                if ($(el).closest('.item-member').text().toLowerCase().includes('presidente')) {
+                    chairName = text;
                 }
-            }
-        });
-
-        // Detect member list
-        const memberSelectors = ['.miembro', '.member-name', 'li.legislator', '.committee-member'];
-        for (const sel of memberSelectors) {
-            $(sel).each((_, el) => {
-                const name = $(el).text().trim();
-                if (name.length > 5 && name.length < 80) members.push(name);
             });
-            if (members.length > 0) break;
         }
 
         if (members.length === 0) {
-            // Fallback: extract names from lists near "miembros" heading
-            const bodyText = $('body').text();
-            const membrosMatch = bodyText.match(/miembros?[:\s]+([^\.]{20,500})/i);
-            if (membrosMatch) {
-                members.push(...membrosMatch[1].split('\n').map(s => s.trim()).filter(s => s.length > 5 && s.length < 80));
+            // Detect chair patterns if House portal didn't give it
+            const chairPatterns = ['presidente', 'presidenta', 'chair', 'presidente de comisión'];
+            $('*').each((_, el) => {
+                const text = $(el).text().trim();
+                const lower = text.toLowerCase();
+                for (const pattern of chairPatterns) {
+                    if (lower.includes(pattern) && text.length < 200) {
+                        const next = $(el).next().text().trim();
+                        if (next.length > 5 && next.length < 60) {
+                            chairName = next;
+                        }
+                        break;
+                    }
+                }
+            });
+
+            // Detect member list patterns
+            const memberSelectors = ['.miembro', '.member-name', 'li.legislator', '.committee-member'];
+            for (const sel of memberSelectors) {
+                $(sel).each((_, el) => {
+                    const name = $(el).text().trim();
+                    if (name.length > 5 && name.length < 80) members.push(name);
+                });
+                if (members.length > 0) break;
+            }
+
+            if (members.length === 0) {
+                // Fallback: extract names from lists near "miembros" heading
+                const bodyText = $('body').text();
+                const membrosMatch = bodyText.match(/miembros?[:\s]+([^\.]{20,500})/i);
+                if (membrosMatch) {
+                    members.push(...membrosMatch[1].split('\n').map(s => s.trim()).filter(s => s.length > 5 && s.length < 80));
+                }
             }
         }
 
         return {
             ...base,
-            chair_name: chairName || base.chair_name,
+            chair_name: chairName,
             member_names: members.length > 0 ? members : base.member_names,
             source_url: url,
         };
@@ -280,22 +305,37 @@ export class CommitteesScraper implements BaseScraper {
     }
 
     private async resolveLegislatorId(name: string, chamber: string): Promise<string | null> {
-        // Exact match
+        const cleanName = name
+            .replace(/^(Hon\.|Sen\.|Rep\.|Lcdo\.|Lcda\.|Sra\.|Sr\.)/i, '')
+            .replace(/[«»“”‘’'"]/g, '') // remove all types of quotes/nicknames
+            .toLowerCase()
+            .trim();
+
+        // 1. Exact match
         let res = await this.db.query(
-            'SELECT id FROM legislators WHERE full_name ILIKE $1 AND chamber = $2',
-            [name.trim(), chamber]
+            'SELECT id FROM legislators WHERE (LOWER(full_name) = $1 OR REPLACE(REPLACE(LOWER(full_name), \'«\', \'\'), \'»\', \'\') = $1) AND chamber = $2',
+            [cleanName, chamber]
         );
         if (res.rows.length > 0) return res.rows[0].id;
 
-        // Last name only
-        const parts = name.trim().split(/\s+/);
-        if (parts.length > 1) {
-            const lastName = parts[parts.length - 1];
-            res = await this.db.query(
-                'SELECT id FROM legislators WHERE full_name ILIKE $1 AND chamber = $2 LIMIT 1',
-                [`%${lastName}%`, chamber]
-            );
-            if (res.rows.length > 0) return res.rows[0].id;
+        // 2. Contains match
+        res = await this.db.query(
+            'SELECT id FROM legislators WHERE (LOWER(full_name) LIKE $1 OR $1 LIKE \'%\' || LOWER(full_name) || \'%\') AND chamber = $2 LIMIT 1',
+            [`%${cleanName}%`, chamber]
+        );
+        if (res.rows.length > 0) return res.rows[0].id;
+
+        // 3. Part-based match (smartest)
+        const parts = cleanName.split(/\s+/).filter(p => p.length > 2);
+        if (parts.length >= 2) {
+            // Check if all parts of the cleaned name are present in some legislator name
+            const allLegs = await this.db.query('SELECT id, full_name FROM legislators WHERE chamber = $1', [chamber]);
+            for (const leg of allLegs.rows) {
+                const lName = leg.full_name.toLowerCase();
+                if (parts.every(p => lName.includes(p))) {
+                    return leg.id;
+                }
+            }
         }
 
         return null;

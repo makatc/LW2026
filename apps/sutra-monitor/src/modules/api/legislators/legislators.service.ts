@@ -3,7 +3,7 @@ import { DatabaseService } from '../../database/database.service';
 
 @Injectable()
 export class LegislatorsApiService {
-    constructor(private readonly db: DatabaseService) {}
+    constructor(private readonly db: DatabaseService) { }
 
     async findAll(params: {
         chamber?: string;
@@ -66,20 +66,32 @@ export class LegislatorsApiService {
         };
     }
 
-    async findOne(id: string) {
+    async findOne(id: string, userId?: string) {
+        let privateMetadataSelect = `NULL as private_metadata`;
+        let privateMetadataJoin = ``;
+        const params: any[] = [id];
+
+        if (userId) {
+            params.push(userId);
+            privateMetadataSelect = `(
+                SELECT row_to_json(ulm) FROM user_legislator_metadata ulm
+                WHERE ulm.legislator_id = l.id AND ulm.user_id = $2
+            ) AS private_metadata`;
+        }
+
         const res = await this.db.query(
             `SELECT l.*,
                     COALESCE(
-                        (SELECT json_agg(
-                            json_build_object(
-                                'committee_id', c.id,
-                                'committee_name', c.name,
-                                'chamber', c.chamber,
-                                'role', cm.role
-                            )
-                        ) FROM committee_memberships cm
-                          JOIN committees c ON c.id = cm.committee_id
-                          WHERE cm.legislator_id = l.id), '[]'
+                        (SELECT json_agg(sub) FROM (
+                            SELECT c.id AS committee_id, c.name AS committee_name, c.chamber, cm.role
+                            FROM committee_memberships cm
+                            JOIN committees c ON c.id = cm.committee_id
+                            WHERE cm.legislator_id = l.id
+                            UNION ALL
+                            SELECT lcm.id, lcm.committee_name, NULL as chamber, lcm.role::text
+                            FROM legislator_committee_memberships_v2 lcm
+                            WHERE lcm.legislator_id = l.id
+                        ) sub), '[]'
                     ) AS memberships,
                     COALESCE(
                         (SELECT json_agg(
@@ -94,10 +106,12 @@ export class LegislatorsApiService {
                     (SELECT row_to_json(lip)
                      FROM legislator_intelligence_profiles lip
                      WHERE lip.legislator_id = l.id
-                    ) AS intelligence_profile
+                    ) AS intelligence_profile,
+                    ${privateMetadataSelect}
              FROM legislators l
+             ${privateMetadataJoin}
              WHERE l.id = $1`,
-            [id]
+            params
         );
         if (!res.rows[0]) throw new NotFoundException('Legislator not found');
         return res.rows[0];
@@ -161,6 +175,29 @@ export class LegislatorsApiService {
             values
         );
         if (!res.rows[0]) throw new NotFoundException('Legislator not found');
+        return res.rows[0];
+    }
+
+    async updatePrivateMetadata(legislatorId: string, userId: string, data: Record<string, any>) {
+        const res = await this.db.query(
+            `INSERT INTO user_legislator_metadata (user_id, legislator_id, private_phone, private_email, private_notes, private_contacts, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, NOW())
+             ON CONFLICT (user_id, legislator_id) DO UPDATE SET
+                private_phone = EXCLUDED.private_phone,
+                private_email = EXCLUDED.private_email,
+                private_notes = EXCLUDED.private_notes,
+                private_contacts = EXCLUDED.private_contacts,
+                updated_at = NOW()
+             RETURNING *`,
+            [
+                userId, 
+                legislatorId, 
+                data.private_phone || null, 
+                data.private_email || null, 
+                data.private_notes || null,
+                JSON.stringify(data.private_contacts || [])
+            ]
+        );
         return res.rows[0];
     }
 

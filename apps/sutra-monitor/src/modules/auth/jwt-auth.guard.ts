@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from './decorators';
@@ -9,19 +9,40 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         super();
     }
 
-    canActivate(context: ExecutionContext): boolean | Promise<boolean> | any {
-        console.log(`🛡️ Guard checking route: ${context.getHandler().name}`);
+    async canActivate(context: ExecutionContext): Promise<boolean> {
         const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
             context.getHandler(),
             context.getClass(),
         ]);
 
-        console.log(`🌐 Is public: ${isPublic}`);
+        try {
+            // Attempt standard JWT validation. 
+            // If it succeeds, req.user will be populated.
+            const result = await super.canActivate(context);
+            return result as boolean;
+        } catch (err) {
+            // If it's a public route, we let the request through even if JWT fails.
+            // req.user will remain undefined.
+            if (isPublic) {
+                return true;
+            }
+            throw err;
+        }
+    }
 
-        if (isPublic) {
-            return true;
+    handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
+        const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+
+        if (err || !user) {
+            if (isPublic) {
+                return null;
+            }
+            throw err || new UnauthorizedException('Please authenticate to access this resource.');
         }
 
-        return super.canActivate(context);
+        return user;
     }
 }

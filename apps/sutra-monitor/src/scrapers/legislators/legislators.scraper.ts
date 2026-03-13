@@ -67,7 +67,7 @@ export class LegislatorsScraper implements BaseScraper {
         // Scrape Senate
         try {
             const senadores = await this.scrapeChamber(
-                'https://senado.pr.gov/senadores/',
+                'https://senado.pr.gov/senadores',
                 'upper',
             );
             legislators.push(...senadores);
@@ -79,7 +79,7 @@ export class LegislatorsScraper implements BaseScraper {
         // Scrape House
         try {
             const representantes = await this.scrapeChamber(
-                'https://camara.pr.gov/representantes/',
+                'https://camara.registrok12.com/representante/',
                 'lower',
             );
             legislators.push(...representantes);
@@ -100,6 +100,10 @@ export class LegislatorsScraper implements BaseScraper {
 
         // Try multiple selector patterns (sites may differ)
         const cardSelectors = [
+            'a.row.liderato',
+            'a.e-con.e-child',
+            'div.team-member',
+            '.elementor-element-populated',
             '.legislator-card',
             '.member-card',
             '.senador-card',
@@ -108,7 +112,6 @@ export class LegislatorsScraper implements BaseScraper {
             '.wp-block-group',
             '.elementor-widget-wrap',
             'li.legislator',
-            '.team-member',
         ];
 
         let found = false;
@@ -186,7 +189,7 @@ export class LegislatorsScraper implements BaseScraper {
         const photoUrl = $card.find('img').first().attr('src') || undefined;
 
         // Detail link
-        const detailLink = $card.find('a').first().attr('href');
+        const detailLink = $card.is('a') ? $card.attr('href') : $card.find('a').first().attr('href');
         const detailUrl = detailLink
             ? detailLink.startsWith('http') ? detailLink : new URL(detailLink, listUrl).href
             : undefined;
@@ -209,12 +212,20 @@ export class LegislatorsScraper implements BaseScraper {
         const emailEl = $('a[href^="mailto:"]').first();
         const email = emailEl.attr('href')?.replace('mailto:', '').trim();
 
-        // Phone
-        const phoneEl = $('a[href^="tel:"]').first();
-        const phone = phoneEl.attr('href')?.replace('tel:', '').replace(/\s/g, '');
+        // Phone - try tel: links first
+        let phone = $('a[href^="tel:"]').first().attr('href')?.replace('tel:', '').replace(/\s/g, '');
+        if (!phone) {
+            // Fallback to regex across the page text
+            const textMatch = $('body').text().match(/\b(?:\+?1[-. ]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})\b/);
+            if (textMatch) {
+                phone = `${textMatch[1]}-${textMatch[2]}-${textMatch[3]}`;
+            }
+        }
 
-        // Office (room number often in a p or span near "Oficina" label)
-        const officeMatch = $('body').text().match(/Oficina[:\s]+([^\n]+)/i);
+        // Office (room number often in a p or span near 'Oficina' label)
+        // Improved regex to avoid capturing "Oficina de Servicios Legislativos"
+        const officeText = $('body').text();
+        const officeMatch = officeText.match(/Oficina[:\s]+((?!de Servicios Legislativos)[a-zA-Z0-9\-\s,]{1,30})(?:\n|$)/i);
         const office = officeMatch ? officeMatch[1].trim() : undefined;
 
         // Better photo from detail page
@@ -232,6 +243,7 @@ export class LegislatorsScraper implements BaseScraper {
 
     private clean(legislators: RawLegislator[]): RawLegislator[] {
         const seen = new Set<string>();
+        const VALID_PARTIES = ['PNP', 'PPD', 'PIP', 'MVC', 'PD', 'IND'];
         return legislators
             .filter(l => l.full_name && l.full_name.length > 2)
             .map(l => ({
@@ -242,6 +254,11 @@ export class LegislatorsScraper implements BaseScraper {
                 phone: l.phone?.replace(/[^\d+\-()]/g, ''),
             }))
             .filter(l => {
+                // Skip entries where party was not recognized (garbage data)
+                if (l.party && !VALID_PARTIES.includes(l.party)) {
+                    this.logger.warn(`Skipping legislator with invalid party: ${l.full_name} (party: ${l.party})`);
+                    return false;
+                }
                 const key = `${l.chamber}:${l.full_name}`;
                 if (seen.has(key)) return false;
                 seen.add(key);
@@ -326,7 +343,9 @@ export class LegislatorsScraper implements BaseScraper {
         if (upper.includes('MVC') || upper.includes('CIUDADANOS')) return 'MVC';
         if (upper.includes('PIP') || upper.includes('INDEPENDENTISTA')) return 'PIP';
         if (upper.includes('INDEPENDIENTE')) return 'IND';
-        return text.trim().substring(0, 20);
+        // Return empty string instead of garbage text — clean() will filter these out
+        this.logger.debug(`Unknown party text: "${text.substring(0, 30)}"`);
+        return '';
     }
 
     private extractParty(text: string): string | undefined {

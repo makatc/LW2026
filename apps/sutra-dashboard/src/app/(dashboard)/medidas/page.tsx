@@ -57,8 +57,8 @@ export default function MedidasPage() {
             offset: page * PAGE_SIZE,
         })
             .then(data => {
-                setBills(data?.data || []);
-                setTotal(data?.total ?? 0);
+                setBills(data?.data || data?.bills || []);
+                setTotal(data?.total ?? (data?.bills?.length || 0));
             })
             .catch(e => setError(e.message))
             .finally(() => setLoading(false));

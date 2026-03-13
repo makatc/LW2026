@@ -108,68 +108,9 @@ export class ApiController {
         };
     }
 
-    // Enhanced bills endpoints (new, alongside /measures for backward compat)
-    @Get('api/bills')
-    @Public()
-    async listBills() {
-        const result = await pool.query(
-            `SELECT sm.id, sm.numero, sm.titulo, sm.bill_type, sm.status, sm.fecha,
-                    sm.author, sm.author_names, sm.source_url,
-                    sc.name AS commission_name
-             FROM sutra_measures sm
-             LEFT JOIN sutra_commissions sc ON sc.id = sm.comision_id
-             ORDER BY sm.fecha DESC NULLS LAST, sm.created_at DESC
-             LIMIT 100`
-        );
-        return { bills: result.rows };
-    }
+    // Enhanced bills endpoints handled by BillsController
 
-    @Get('api/bills/summary')
-    @Public()
-    async getBillSummary() {
-        const result = await pool.query(
-            `SELECT
-                COUNT(*) AS total,
-                COUNT(*) FILTER (WHERE bill_type = 'bill') AS bills_count,
-                COUNT(*) FILTER (WHERE bill_type = 'resolution') AS resolutions_count,
-                COUNT(*) FILTER (WHERE last_seen_at >= NOW() - INTERVAL '7 days') AS recent_count
-             FROM sutra_measures`
-        );
-        return result.rows[0];
-    }
 
-    @Get('api/bills/:id')
-    @Public()
-    async getBillDetail(@Param('id') id: string) {
-        const bill = await pool.query(
-            `SELECT sm.*, sc.name AS commission_name
-             FROM sutra_measures sm
-             LEFT JOIN sutra_commissions sc ON sc.id = sm.comision_id
-             WHERE sm.id = $1`,
-            [id]
-        );
-        if (bill.rows.length === 0) return null;
-
-        const versions = await pool.query(
-            'SELECT id, version_note, pdf_url, is_current, scraped_at FROM bill_versions WHERE measure_id = $1 ORDER BY scraped_at DESC',
-            [id]
-        );
-        const votes = await pool.query(
-            'SELECT id, vote_date, motion_text, result, yea_count, nay_count, chamber FROM votes WHERE measure_id = $1 ORDER BY vote_date DESC',
-            [id]
-        );
-        const history = await pool.query(
-            'SELECT * FROM measure_events WHERE measure_id = $1 ORDER BY event_date DESC',
-            [id]
-        );
-
-        return {
-            ...bill.rows[0],
-            versions: versions.rows,
-            votes: votes.rows,
-            history: history.rows,
-        };
-    }
 
     @Post('ingest/trigger')
     async triggerIngest() {

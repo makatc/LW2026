@@ -9,28 +9,15 @@ import * as cheerio from 'cheerio';
  * Scrapes the public Registro de Cabilderos from the
  * Puerto Rico Department of Justice website.
  *
- * DOJ Public Registry URL:
- * https://www.justicia.pr.gov/ → Registro de Cabilderos
- *
- * This scraper:
- * 1. Fetches the public registry page
- * 2. Parses registered lobbyists/firms
- * 3. Stores data in doj_registry_entries table
- * 4. Provides cross-reference capabilities with legislators
- *
- * NOTE: The DOJ website structure may change. The scraper uses
- * multiple strategies and graceful fallbacks.
+ * Updated for the new portal (2026):
+ * https://registrodecabilderos.pr.gov/Lobbyist
  */
 @Injectable()
 export class DojRegistryScraperService {
     private readonly logger = new Logger(DojRegistryScraperService.name);
 
-    // Known DOJ registry URLs (multiple fallbacks)
-    private readonly registryUrls = [
-        'https://www.justicia.pr.gov/registro-de-cabilderos/',
-        'https://www.justicia.pr.gov/departamento/registro-cabilderos/',
-        'https://www.justicia.pr.gov/servicios/registro-de-cabilderos/',
-    ];
+    private readonly baseUrl = 'https://registrodecabilderos.pr.gov/Lobbyist';
+    private readonly detailsUrl = 'https://registrodecabilderos.pr.gov/Lobbyist/Details';
 
     constructor(private readonly db: DatabaseService) {}
 
@@ -38,103 +25,117 @@ export class DojRegistryScraperService {
      * Main scrape method: fetches and parses the DOJ registry.
      */
     async scrapeRegistry() {
-        this.logger.log('🕷️ Starting DOJ Registry scrape...');
+        this.logger.log('🕷️ Starting DOJ Registry scrape (New Portal)...');
 
         // Ensure the storage table exists
         await this.ensureTable();
 
-        let html: string | null = null;
-        let usedUrl = '';
-
-        // Try all known URLs
-        for (const url of this.registryUrls) {
-            try {
-                this.logger.debug(`Trying: ${url}`);
-                const response = await axios.get(url, {
-                    timeout: 20000,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64) AppleWebKit/537.36 LegalWatch/2.0',
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                        'Accept-Language': 'es-PR,es;q=0.9,en;q=0.8',
-                    },
-                    maxRedirects: 5,
-                });
-
-                if (response.status === 200 && response.data?.length > 1000) {
-                    html = response.data;
-                    usedUrl = url;
-                    this.logger.log(`✅ Fetched DOJ registry from ${url} (${html!.length} bytes)`);
-                    break;
+        try {
+            // 1. Initial GET to obtain cookies and Antiforgery Token
+            this.logger.debug(`Fetching initial tokens from ${this.baseUrl}`);
+            const initialResponse = await axios.get(this.baseUrl, {
+                timeout: 30000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64) AppleWebKit/537.36 LegalWatch/2.0',
                 }
-            } catch (err: any) {
-                this.logger.debug(`URL failed: ${url} — ${err.message}`);
-            }
-        }
+            });
 
-        if (!html) {
-            this.logger.warn('⚠️ Could not reach DOJ registry. All URLs failed.');
+            const cookies = initialResponse.headers['set-cookie'];
+            const $initial = cheerio.load(initialResponse.data);
+            const token = $initial('input[name="__RequestVerificationToken"]').val() as string;
+
+            if (!token || !cookies) {
+                throw new Error('Could not obtain Antiforgery Token or cookies from DOJ site');
+            }
+
+            this.logger.debug('✅ Tokens obtained. Accepting terms...');
+
+            // 2. POST to /Lobbyist/Details to "accept" terms and get the data
+            const params = new URLSearchParams();
+            params.append('__RequestVerificationToken', token);
+
+            const postResponse = await axios.post(
+                this.detailsUrl,
+                params.toString(),
+                {
+                    timeout: 30000,
+                    headers: {
+                        'Cookie': cookies.join('; '),
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Referer': this.baseUrl,
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64) AppleWebKit/537.36 LegalWatch/2.0',
+                    }
+                }
+            );
+
+            if (postResponse.status !== 200 || !postResponse.data) {
+                throw new Error(`Failed to fetch registry data. Status: ${postResponse.status}`);
+            }
+
+            // 3. Parse the HTML
+            const entries = this.parseRegistryPage(postResponse.data, this.detailsUrl);
+            this.logger.log(`📋 Parsed ${entries.length} registry entries`);
+
+            // 4. Store/update entries in DB
+            let inserted = 0;
+            let updated = 0;
+
+            for (const entry of entries) {
+                try {
+                    const result = await this.db.query(
+                        `INSERT INTO doj_registry_entries
+                         (lobbyist_name, firm_name, registration_number, status,
+                          clients, legislators_declared, raw_data, source_url, last_scraped_at)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                         ON CONFLICT (lobbyist_name, COALESCE(firm_name, ''))
+                         DO UPDATE SET
+                             registration_number = COALESCE($3, doj_registry_entries.registration_number),
+                             status = COALESCE($4, doj_registry_entries.status),
+                             clients = COALESCE($5, doj_registry_entries.clients),
+                             legislators_declared = COALESCE($6, doj_registry_entries.legislators_declared),
+                             raw_data = $7,
+                             source_url = $8,
+                             last_scraped_at = NOW(),
+                             updated_at = NOW()
+                         RETURNING (xmax = 0) AS is_new`,
+                        [
+                            entry.lobbyist_name,
+                            entry.firm_name || null,
+                            entry.registration_number || null,
+                            entry.status || 'active',
+                            JSON.stringify(entry.clients || []),
+                            JSON.stringify(entry.legislators_declared || []),
+                            JSON.stringify(entry),
+                            this.detailsUrl,
+                        ],
+                    );
+                    if (result.rows[0]?.is_new) inserted++;
+                    else updated++;
+                } catch (err: any) {
+                    this.logger.debug(`Failed to upsert entry ${entry.lobbyist_name}: ${err.message}`);
+                }
+            }
+
+            const scrapeResult = {
+                status: 'success',
+                source_url: this.detailsUrl,
+                total_entries: entries.length,
+                inserted,
+                updated,
+                scraped_at: new Date().toISOString(),
+            };
+
+            this.logger.log(`✅ DOJ scrape complete: ${inserted} new, ${updated} updated`);
+            return scrapeResult;
+
+        } catch (err: any) {
+            this.logger.error(`❌ DOJ Scrape failed: ${err.message}`);
             return {
                 status: 'failed',
-                message: 'Could not reach DOJ registry. The website may be down or URLs may have changed.',
-                urls_tried: this.registryUrls,
+                message: err.message,
+                url: this.detailsUrl,
             };
         }
-
-        // Parse the HTML
-        const entries = this.parseRegistryPage(html, usedUrl);
-        this.logger.log(`📋 Parsed ${entries.length} registry entries`);
-
-        // Store/update entries in DB
-        let inserted = 0;
-        let updated = 0;
-
-        for (const entry of entries) {
-            try {
-                const result = await this.db.query(
-                    `INSERT INTO doj_registry_entries
-                     (lobbyist_name, firm_name, registration_number, status,
-                      clients, legislators_declared, raw_data, source_url, last_scraped_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-                     ON CONFLICT (lobbyist_name, COALESCE(firm_name, ''))
-                     DO UPDATE SET
-                         registration_number = COALESCE($3, doj_registry_entries.registration_number),
-                         status = COALESCE($4, doj_registry_entries.status),
-                         clients = COALESCE($5, doj_registry_entries.clients),
-                         legislators_declared = COALESCE($6, doj_registry_entries.legislators_declared),
-                         raw_data = $7,
-                         source_url = $8,
-                         last_scraped_at = NOW(),
-                         updated_at = NOW()
-                     RETURNING (xmax = 0) AS is_new`,
-                    [
-                        entry.lobbyist_name,
-                        entry.firm_name || null,
-                        entry.registration_number || null,
-                        entry.status || 'active',
-                        JSON.stringify(entry.clients || []),
-                        JSON.stringify(entry.legislators_declared || []),
-                        JSON.stringify(entry),
-                        usedUrl,
-                    ],
-                );
-                if (result.rows[0]?.is_new) inserted++;
-                else updated++;
-            } catch (err: any) {
-                this.logger.debug(`Failed to upsert entry ${entry.lobbyist_name}: ${err.message}`);
-            }
-        }
-
-        const scrapeResult = {
-            status: 'success',
-            source_url: usedUrl,
-            total_entries: entries.length,
-            inserted,
-            updated,
-            scraped_at: new Date().toISOString(),
-        };
-
-        this.logger.log(`✅ DOJ scrape complete: ${inserted} new, ${updated} updated`);
-        return scrapeResult;
     }
 
     /**
@@ -207,103 +208,41 @@ export class DojRegistryScraperService {
 
     /**
      * Parse the DOJ registry HTML page.
-     *
-     * DOJ pages typically present registry data in tables or lists.
-     * We try multiple parsing strategies since the format may vary.
      */
     private parseRegistryPage(html: string, sourceUrl: string): any[] {
         const $ = cheerio.load(html);
         const entries: any[] = [];
 
-        // Strategy 1: Look for data tables
-        $('table').each((_, table) => {
-            const rows = $(table).find('tr');
-            if (rows.length < 2) return; // Skip tables without data
+        // In the new portal, data is in a table with class 'table-striped' (typically)
+        // We'll look for any table with rows.
+        $('table tr').each((i, row) => {
+            if (i === 0) return; // Skip header
 
-            const headers: string[] = [];
-            $(rows[0]).find('th, td').each((_, cell) => {
-                headers.push($(cell).text().trim().toLowerCase());
-            });
+            const cells = $(row).find('td');
+            if (cells.length >= 3) {
+                const name = $(cells[0]).text().trim();
+                const regNum = $(cells[1]).text().trim();
+                const clientsText = $(cells[2]).text().trim();
+                const staffText = $(cells[3]).text().trim();
 
-            // Check if this looks like a registry table
-            const isRegistry = headers.some(h =>
-                h.includes('nombre') || h.includes('cabildero') ||
-                h.includes('firma') || h.includes('registro') ||
-                h.includes('lobbyist')
-            );
-
-            if (!isRegistry && headers.length > 0) return;
-
-            rows.slice(1).each((_, row) => {
-                const cells: string[] = [];
-                $(row).find('td').each((_, cell) => {
-                    cells.push($(cell).text().trim());
-                });
-
-                if (cells.length >= 2 && cells[0]) {
-                    entries.push({
-                        lobbyist_name: cells[0],
-                        firm_name: cells[1] || null,
-                        registration_number: cells[2] || null,
-                        status: cells[3]?.toLowerCase().includes('activ') ? 'active' : (cells[3] || 'unknown'),
-                        clients: this.parseClients(cells[4] || ''),
-                        legislators_declared: this.parseLegislatorNames(cells[5] || ''),
-                    });
-                }
-            });
-        });
-
-        // Strategy 2: Look for structured lists/divs
-        if (entries.length === 0) {
-            $('div.entry, div.cabildero, li.lobby-entry, article.registro').each((_, el) => {
-                const name = $(el).find('.nombre, .name, h3, h4, strong').first().text().trim();
-                const firm = $(el).find('.firma, .firm, .empresa').first().text().trim();
-                const regNum = $(el).find('.numero, .registration').first().text().trim();
-
-                if (name) {
+                if (name && regNum) {
                     entries.push({
                         lobbyist_name: name,
-                        firm_name: firm || null,
-                        registration_number: regNum || null,
+                        firm_name: null, // New portal doesn't explicitly separate firm from individual in columns
+                        registration_number: regNum,
                         status: 'active',
-                        clients: [],
-                        legislators_declared: [],
+                        clients: this.parseList(clientsText),
+                        legislators_declared: [], // New portal doesn't show this in the main table
+                        personal_autorizado: this.parseList(staffText),
                     });
                 }
-            });
-        }
-
-        // Strategy 3: Look for any text-heavy content that resembles a list
-        if (entries.length === 0) {
-            const contentText = $('main, .content, .entry-content, article, #content')
-                .first().text();
-            if (contentText) {
-                // Try to parse line-by-line
-                const lines = contentText.split('\n')
-                    .map(l => l.trim())
-                    .filter(l => l.length > 5 && l.length < 200);
-
-                for (const line of lines) {
-                    // Look for patterns like "Name - Firm" or "Name | Firm"
-                    const parts = line.split(/\s*[-–—|]\s*/);
-                    if (parts.length >= 2 && parts[0].match(/^[A-ZÁÉÍÓÚÑ]/)) {
-                        entries.push({
-                            lobbyist_name: parts[0].trim(),
-                            firm_name: parts[1]?.trim() || null,
-                            registration_number: null,
-                            status: 'active',
-                            clients: [],
-                            legislators_declared: [],
-                        });
-                    }
-                }
             }
-        }
+        });
 
-        // Deduplicate by name
+        // Deduplicate by name + registration number
         const seen = new Set<string>();
         return entries.filter(e => {
-            const key = `${e.lobbyist_name}|${e.firm_name || ''}`;
+            const key = `${e.lobbyist_name}|${e.registration_number}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
@@ -311,28 +250,17 @@ export class DojRegistryScraperService {
     }
 
     /**
-     * Parse a cell that may contain a comma-separated list of clients.
+     * Parse a semicolon-separated list.
      */
-    private parseClients(text: string): string[] {
+    private parseList(text: string): string[] {
         if (!text) return [];
-        return text.split(/[,;]/)
+        return text.split(/[;]/)
             .map(c => c.trim())
             .filter(c => c.length > 1);
     }
 
     /**
-     * Parse a cell that may contain legislator names.
-     */
-    private parseLegislatorNames(text: string): string[] {
-        if (!text) return [];
-        return text.split(/[,;]/)
-            .map(n => n.trim())
-            .filter(n => n.length > 3);
-    }
-
-    /**
      * Ensure the doj_registry_entries table exists.
-     * Creates it on first use if missing.
      */
     private async ensureTable() {
         try {

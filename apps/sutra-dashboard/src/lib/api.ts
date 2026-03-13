@@ -279,8 +279,8 @@ export async function fetchBillsEnhanced(params?: {
     if (params?.commission) searchParams.append('commission', params.commission);
     if (params?.author) searchParams.append('author', params.author);
     if (params?.search) searchParams.append('search', params.search);
-    if (params?.limit) searchParams.append('limit', params.limit.toString());
-    if (params?.offset) searchParams.append('offset', params.offset.toString());
+    if (params?.limit !== undefined) searchParams.append('limit', params.limit.toString());
+    if (params?.offset !== undefined) searchParams.append('offset', params.offset.toString());
     const qs = searchParams.toString();
     return fetchWithAuth(`/api/bills${qs ? `?${qs}` : ''}`);
 }
@@ -361,6 +361,13 @@ export async function createLegislator(data: {
 
 export async function updateLegislator(id: string, data: Record<string, any>) {
     return fetchWithAuth(`/api/legislators/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+}
+
+export async function updateLegislatorPrivateMetadata(id: string, data: Record<string, any>) {
+    return fetchWithAuth(`/api/legislators/${id}/private-metadata`, {
         method: 'PATCH',
         body: JSON.stringify(data),
     });

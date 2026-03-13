@@ -17,6 +17,7 @@ import {
     generateLegislatorProfile,
     getCompliancePdfUrl,
     fetchDojLobbyistsForLegislator,
+    updateLegislatorPrivateMetadata,
 } from '@/lib/api';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ export default function LegisladorFichaPage() {
 
     const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'intelligence');
     const [showInteractionPanel, setShowInteractionPanel] = useState(false);
+    const [showPrivateMetadataPanel, setShowPrivateMetadataPanel] = useState(false);
 
     useEffect(() => {
         router.replace(`/legisladores/${id}?tab=${activeTab}`, { scroll: false });
@@ -116,6 +118,60 @@ export default function LegisladorFichaPage() {
                                 <span className="text-sm text-slate-500">📍 {legislator.district}</span>
                             )}
                         </div>
+                        
+                        {/* Public Context Info */}
+                        <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-slate-600">
+                            {legislator.phone && (
+                                <span className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+                                    📞 {legislator.phone}
+                                </span>
+                            )}
+                            {legislator.email && (
+                                <span className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+                                    📧 <a href={`mailto:${legislator.email}`} className="text-indigo-600 hover:underline">{legislator.email}</a>
+                                </span>
+                            )}
+                            {legislator.office && (
+                                <span className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded border border-slate-100">
+                                    🏢 Oficina {legislator.office}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Private Metadata Summary (If available) */}
+                        <div className="flex flex-col gap-3 mt-3 text-sm text-amber-700">
+                            {(legislator.private_metadata?.private_phone || legislator.private_metadata?.private_email) && (
+                                <div className="flex flex-wrap gap-4 p-2 bg-amber-50 rounded border border-amber-200">
+                                    <span className="font-medium">Contacto Principal Privado:</span>
+                                    {legislator.private_metadata?.private_phone && (
+                                        <span className="flex items-center gap-1.5">📱 {legislator.private_metadata.private_phone}</span>
+                                    )}
+                                    {legislator.private_metadata?.private_email && (
+                                        <span className="flex items-center gap-1.5">✉️ {legislator.private_metadata.private_email}</span>
+                                    )}
+                                </div>
+                            )}
+
+                            {(legislator.private_metadata?.private_contacts?.length > 0) && (
+                                <div className="flex flex-col gap-2 mt-2">
+                                    {legislator.private_metadata.private_contacts.map((contact: any, idx: number) => (
+                                        <div key={idx} className="flex flex-wrap gap-4 p-2.5 bg-amber-50/70 rounded border border-amber-200/60 justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-100/50 text-amber-800 border border-amber-200">
+                                                    {contact.category || 'Contacto'}
+                                                </span>
+                                                <span className="font-medium">{contact.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-xs font-medium text-amber-700">
+                                                {contact.phone && <span>📞 {contact.phone}</span>}
+                                                {contact.email && <span>📧 <a href={`mailto:${contact.email}`} className="hover:underline">{contact.email}</a></span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Committee badges */}
                         {legislator.memberships && legislator.memberships.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-3">
@@ -127,12 +183,20 @@ export default function LegisladorFichaPage() {
                             </div>
                         )}
                     </div>
-                    <button
-                        onClick={() => setShowInteractionPanel(true)}
-                        className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
-                    >
-                        <span>+</span> Nueva Interacción
-                    </button>
+                    <div className="flex flex-col gap-2 shrink-0">
+                        <button
+                            onClick={() => setShowInteractionPanel(true)}
+                            className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                            <span>+</span> Nueva Interacción
+                        </button>
+                        <button
+                            onClick={() => setShowPrivateMetadataPanel(true)}
+                            className="px-4 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            ✏️ Editar Contacto Privado
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -169,6 +233,16 @@ export default function LegisladorFichaPage() {
                     legislatorName={legislator.full_name}
                     staff={legislator.staff || []}
                     onClose={() => setShowInteractionPanel(false)}
+                />
+            )}
+
+            {/* Private Metadata Panel */}
+            {showPrivateMetadataPanel && (
+                <PrivateMetadataPanel
+                    legislatorId={id}
+                    legislatorName={legislator.full_name}
+                    initialData={legislator.private_metadata || {}}
+                    onClose={() => setShowPrivateMetadataPanel(false)}
                 />
             )}
         </div>
@@ -1155,5 +1229,245 @@ function TabSkeleton() {
                 </div>
             ))}
         </div>
+    );
+}
+
+// ─── Private Metadata Panel ───────────────────────────────────────────────────
+
+function PrivateMetadataPanel({
+    legislatorId,
+    legislatorName,
+    initialData,
+    onClose,
+}: {
+    legislatorId: string;
+    legislatorName: string;
+    initialData: any;
+    onClose: () => void;
+}) {
+    const queryClient = useQueryClient();
+    const [saving, setSaving] = useState(false);
+    
+    const [email, setEmail] = useState(initialData?.private_email || '');
+    const [phone, setPhone] = useState(initialData?.private_phone || '');
+    const [notes, setNotes] = useState(initialData?.private_notes || '');
+
+    const [contacts, setContacts] = useState<any[]>(initialData?.private_contacts || []);
+
+    const CATEGORIES = [
+        'Dirección',
+        'Asesoría Legislativa/Legal',
+        'Servicios a Constituyentes',
+        'Comunicaciones',
+        'Administración y Apoyo',
+    ];
+
+    const addContact = () => {
+        setContacts([...contacts, { category: 'Dirección', name: '', email: '', phone: '' }]);
+    };
+
+    const removeContact = (idx: number) => {
+        setContacts(contacts.filter((_, i) => i !== idx));
+    };
+
+    const updateContact = (idx: number, field: string, value: string) => {
+        const newContacts = [...contacts];
+        newContacts[idx][field] = value;
+        setContacts(newContacts);
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await updateLegislatorPrivateMetadata(legislatorId, {
+                private_email: email,
+                private_phone: phone,
+                private_notes: notes,
+                private_contacts: contacts.filter(c => c.name || c.email || c.phone)
+            });
+            
+            queryClient.invalidateQueries({ queryKey: ['legislator', legislatorId] });
+            onClose();
+        } catch (e) {
+            console.error('Failed to save private metadata', e);
+            alert('Error al guardar. Por favor, intente nuevamente.');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <>
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-opacity" onClick={onClose} />
+            <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+                <div className="px-6 py-5 border-b border-amber-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50">
+                    <div>
+                        <h2 className="text-xl font-bold text-amber-900">Gestión de Contactos Privados</h2>
+                        <p className="text-sm text-amber-700 font-medium">{legislatorName}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-amber-100 rounded-full text-amber-500 transition-colors">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                    {/* Main Contact Group */}
+                    <div className="bg-amber-50/70 p-6 rounded-2xl border border-amber-200/50 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4 text-amber-900">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <h3 className="font-bold">Contacto Directo (Personal)</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-amber-700 uppercase tracking-wider">Teléfono Directo</label>
+                                <input
+                                    type="text"
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    placeholder="Ej: (787) 555-1212"
+                                    className="w-full px-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 text-sm bg-white/80 transition-shadow"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-amber-700 uppercase tracking-wider">Email Personal</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Ej: nombre@hotmail.com"
+                                    className="w-full px-4 py-2.5 border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 text-sm bg-white/80 transition-shadow"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Staff / Contacts List */}
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2 text-slate-900 border-b-2 border-indigo-500 pb-1">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <h3 className="font-bold">Equipo y Asesores</h3>
+                            </div>
+                            <button 
+                                onClick={addContact} 
+                                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all hover:scale-105 active:scale-95 shadow-md shadow-indigo-200"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Añadir Persona
+                            </button>
+                        </div>
+                        
+                        {contacts.length === 0 && (
+                            <div className="py-12 text-center rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200">
+                                <p className="text-slate-400 font-medium">No has añadido personas de contacto adicionales.</p>
+                            </div>
+                        )}
+
+                        <div className="space-y-6">
+                            {contacts.map((contact, idx) => (
+                                <div key={idx} className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm relative group hover:border-indigo-300 transition-all hover:shadow-md">
+                                    <button 
+                                        onClick={() => removeContact(idx)} 
+                                        className="absolute right-4 top-4 text-slate-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all"
+                                        title="Eliminar contacto"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-1.5">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase">Nombre Completo</label>
+                                                <input
+                                                    type="text"
+                                                    value={contact.name}
+                                                    onChange={(e) => updateContact(idx, 'name', e.target.value)}
+                                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm font-medium transition-shadow"
+                                                    placeholder="Ej: José Rivera"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="block text-xs font-bold text-slate-500 uppercase">Categoría / Función</label>
+                                                <select
+                                                    value={contact.category}
+                                                    onChange={(e) => updateContact(idx, 'category', e.target.value)}
+                                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm font-medium bg-slate-50 transition-shadow"
+                                                >
+                                                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase">Correo Electrónico</label>
+                                            <input
+                                                type="email"
+                                                value={contact.email}
+                                                onChange={(e) => updateContact(idx, 'email', e.target.value)}
+                                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm transition-shadow"
+                                                placeholder="email@servidor.com"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase">Teléfono Movil / Ofic.</label>
+                                            <input
+                                                type="text"
+                                                value={contact.phone}
+                                                onChange={(e) => updateContact(idx, 'phone', e.target.value)}
+                                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm transition-shadow"
+                                                placeholder="(787) 000-0000"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <label className="block text-sm font-bold text-slate-800">Notas Estratégicas y Privadas</label>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="w-full px-5 py-4 border border-slate-300 rounded-2xl focus:ring-2 focus:ring-indigo-500 h-32 text-sm shadow-inner transition-shadow"
+                            placeholder="Escribe aquí intereses específicos, mejores formas de acercarse, o notas de color sobre el legislador..."
+                        />
+                    </div>
+                </div>
+
+                <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/80 backdrop-blur-md flex justify-end gap-4">
+                    <button 
+                        onClick={onClose} 
+                        className="px-6 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-all"
+                    >
+                        Salir sin guardar
+                    </button>
+                    <button 
+                        onClick={handleSave} 
+                        disabled={saving} 
+                        className="px-10 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl text-sm font-bold hover:from-indigo-700 hover:to-indigo-800 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-indigo-100 flex items-center gap-2"
+                    >
+                        {saving ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Guardando...
+                            </>
+                        ) : (
+                            'Guardar Cambios'
+                        )}
+                    </button>
+                </div>
+            </div>
+        </>
     );
 }
