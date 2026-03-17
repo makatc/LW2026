@@ -18,6 +18,7 @@ import { InteractionsApiModule } from './interactions/interactions.module';
 import { IntelligenceModule } from './intelligence/intelligence.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { DojRegistryModule } from './doj-registry/doj-registry.module';
+import { FiscalIntelligenceModule } from './fiscal-intelligence/fiscal-intelligence.module';
 
 @Module({
     imports: [
@@ -34,6 +35,7 @@ import { DojRegistryModule } from './doj-registry/doj-registry.module';
         IntelligenceModule,
         ComplianceModule,
         DojRegistryModule,
+        FiscalIntelligenceModule,
     ],
     controllers: [DashboardController, ApiController, CommissionController],
     providers: [CommissionService, SystemRepository],

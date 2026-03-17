@@ -11,6 +11,7 @@ export enum TransformationType {
   TESTIMONIO = 'testimonio',
   RESUMEN_EJECUTIVO = 'resumen_ejecutivo',
   PERSONALIZADO = 'personalizado',
+  ANALISIS_RIESGO_FOMB = 'analisis_riesgo_fomb',
 }
 
 export enum ClientStance {

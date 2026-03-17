@@ -1,12 +1,13 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { DossierTransformation, GenerationStatus, TransformationType, ClientStance } from '../../entities/dossier-transformation.entity';
 import { DossierChunk } from '../../entities/dossier-chunk.entity';
+import { DossierProject } from '../../entities/dossier-project.entity';
 
 const TONE_DESCRIPTIONS: Record<string, string> = {
   formal_juridico: 'Usa lenguaje jurídico formal, preciso y técnico. Cita disposiciones legales cuando corresponda.',
@@ -108,6 +109,12 @@ Lenguaje: ejecutivo, orientado a decisión, sin jerga legal.`,
 
 Genera el documento solicitado según las instrucciones adicionales proporcionadas.
 Estructura el contenido de manera profesional y coherente.`,
+
+    // ANALISIS_RIESGO_FOMB is handled separately via buildFombRiskPrompt — placeholder here
+    [TransformationType.ANALISIS_RIESGO_FOMB]: `${baseInstructions}
+
+Genera un análisis de riesgo FOMB basado en los fragmentos del dossier disponibles.
+Identifica posibles conflictos con el Plan Fiscal y recomienda enmiendas.`,
   };
 
   return templates[type] ?? templates[TransformationType.PERSONALIZADO];
@@ -122,7 +129,10 @@ export class TransformationProcessor extends WorkerHost {
     private readonly transformationRepo: Repository<DossierTransformation>,
     @InjectRepository(DossierChunk)
     private readonly chunkRepo: Repository<DossierChunk>,
+    @InjectRepository(DossierProject)
+    private readonly projectRepo: Repository<DossierProject>,
     private readonly configService: ConfigService,
+    private readonly dataSource: DataSource,
   ) {
     super();
   }
@@ -140,20 +150,26 @@ export class TransformationProcessor extends WorkerHost {
       // Fetch selected chunks
       const chunks = await this.chunkRepo.findByIds(transformation.selected_chunk_ids);
 
-      // Get legislator context if available
-      let legislatorContext: string | undefined;
-      if (transformation.legislator_id) {
-        legislatorContext = await this.getLegislatorContext(transformation.legislator_id);
-      }
+      let prompt: string;
 
-      const prompt = buildPrompt(
-        transformation.transformation_type,
-        chunks,
-        transformation.client_stance,
-        transformation.tone_profile ?? undefined,
-        legislatorContext,
-        transformation.custom_instructions ?? undefined,
-      );
+      if (transformation.transformation_type === TransformationType.ANALISIS_RIESGO_FOMB) {
+        prompt = await this.buildFombRiskPrompt(transformation, chunks);
+      } else {
+        // Get legislator context if available
+        let legislatorContext: string | undefined;
+        if (transformation.legislator_id) {
+          legislatorContext = await this.getLegislatorContext(transformation.legislator_id);
+        }
+
+        prompt = buildPrompt(
+          transformation.transformation_type,
+          chunks,
+          transformation.client_stance,
+          transformation.tone_profile ?? undefined,
+          legislatorContext,
+          transformation.custom_instructions ?? undefined,
+        );
+      }
 
       const content = await this.callGemini(prompt);
 
@@ -169,6 +185,101 @@ export class TransformationProcessor extends WorkerHost {
         generation_status: GenerationStatus.ERROR,
       });
     }
+  }
+
+  private async buildFombRiskPrompt(
+    transformation: DossierTransformation,
+    chunks: DossierChunk[],
+  ): Promise<string> {
+    // Resolve the project's measure_reference to query FOMB actions
+    const project = await this.projectRepo.findOne({ where: { id: transformation.project_id } });
+    const measureRef = project?.measure_reference?.trim().toUpperCase() ?? null;
+
+    let fombActionData = '[SIN FUENTE EN DOSSIER]';
+    let historialFomb = '[SIN FUENTE EN DOSSIER]';
+
+    if (measureRef) {
+      // Fetch the most relevant FOMB action for this measure
+      try {
+        const actions = await this.dataSource.query(
+          `SELECT * FROM fomb_actions
+           WHERE UPPER(TRIM(law_number)) = $1
+              OR UPPER(TRIM(bill_number)) = $1
+           ORDER BY action_date DESC NULLS LAST
+           LIMIT 1`,
+          [measureRef],
+        );
+        if (actions.length > 0) {
+          const a = actions[0];
+          fombActionData = [
+            a.action_type ? `Tipo: ${a.action_type}` : null,
+            a.action_date ? `Fecha: ${a.action_date}` : null,
+            a.agency ? `Agencia: ${a.agency}` : null,
+            a.amount ? `Monto: ${a.amount}` : null,
+            a.description ? `Descripción: ${a.description}` : null,
+            a.rationale ? `Razonamiento: ${a.rationale}` : null,
+          ]
+            .filter(Boolean)
+            .join('\n');
+        }
+      } catch (err) {
+        this.logger.warn(`FOMB action query failed: ${err}`);
+      }
+
+      // Fetch last 24 months of FOMB actions in the same sector/agency
+      try {
+        const cutoff = new Date();
+        cutoff.setMonth(cutoff.getMonth() - 24);
+        const historial = await this.dataSource.query(
+          `SELECT action_date, action_type, agency, amount, description
+           FROM fomb_actions
+           WHERE action_date >= $1
+           ORDER BY action_date DESC
+           LIMIT 20`,
+          [cutoff.toISOString()],
+        );
+        if (historial.length > 0) {
+          historialFomb = historial
+            .map((h: Record<string, unknown>) =>
+              [
+                h.action_date ? `[${h.action_date}]` : null,
+                h.action_type,
+                h.agency,
+                h.amount ? `$${h.amount}` : null,
+                h.description,
+              ]
+                .filter(Boolean)
+                .join(' | '),
+            )
+            .join('\n');
+        }
+      } catch (err) {
+        this.logger.warn(`FOMB historial query failed: ${err}`);
+      }
+    }
+
+    const chunksText = chunks
+      .map((c) => `[${c.section_reference ?? c.chunk_type}] ${c.content}`)
+      .join('\n\n');
+
+    return `Eres un experto en PROMESA y la Junta de Supervisión Fiscal de Puerto Rico.
+
+ACCIÓN FOMB RELEVANTE:
+${fombActionData}
+
+HISTORIAL DE ACCIONES FOMB EN ESTE SECTOR (últimos 24 meses):
+${historialFomb}
+
+FRAGMENTOS DEL DOSSIER SELECCIONADOS:
+${chunksText || '[SIN FRAGMENTOS SELECCIONADOS]'}
+
+Genera un análisis de riesgo de implementación para esta medida considerando:
+1. Probabilidad de objeción FOMB basada en el historial
+2. Elementos específicos de la medida que pueden conflictuar con el Plan Fiscal vigente
+3. Recomendaciones para enmendar la medida y reducir el riesgo FOMB
+4. Precedentes de negociación exitosa con la FOMB en casos similares
+
+Si algún dato no está disponible en el contexto proporcionado, márcalo [SIN FUENTE EN DOSSIER].`;
   }
 
   private async getLegislatorContext(legislatorId: string): Promise<string | undefined> {

@@ -55,6 +55,18 @@ export class DossierDocument {
   @CreateDateColumn({ type: 'timestamptz' })
   uploaded_at!: Date;
 
+  @Column({ type: 'boolean', default: false, nullable: true })
+  auto_ingested?: boolean;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  source?: string;
+
+  @Column({ type: 'text', nullable: true })
+  content_text?: string;
+
+  @Column({ type: 'varchar', length: 1000, nullable: true })
+  original_name?: string;
+
   @Column({ type: 'timestamptz', nullable: true })
   processed_at?: Date;
 }

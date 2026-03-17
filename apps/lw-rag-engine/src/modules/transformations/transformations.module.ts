@@ -3,13 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
 import { DossierTransformation, DossierChunk } from '../../entities';
+import { DossierProject } from '../../entities/dossier-project.entity';
 import { TransformationsController } from './transformations.controller';
 import { TransformationsService } from './transformations.service';
 import { TransformationProcessor } from './transformation.processor';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DossierTransformation, DossierChunk]),
+    TypeOrmModule.forFeature([DossierTransformation, DossierChunk, DossierProject]),
     BullModule.registerQueue({
       name: 'transformation-queue',
       defaultJobOptions: {

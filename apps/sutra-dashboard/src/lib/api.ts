@@ -535,3 +535,53 @@ export async function updateScraperConfig(id: string, is_enabled: boolean, cron_
         body: JSON.stringify({ is_enabled, cron_expression }),
     });
 }
+
+// ─── Fiscal Intelligence ───────────────────────────────────────────────────
+
+export async function fetchFombRecent(params?: { status?: string; limit?: number; offset?: number }) {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set('status', params.status);
+    if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.offset) qs.set('offset', String(params.offset));
+    const query = qs.toString() ? `?${qs}` : '';
+    return fetchWithAuth(`/fomb/recent${query}`);
+}
+
+export async function fetchFiscalNotesByBill(billId: string) {
+    return fetchWithAuth(`/bills/${billId}/fiscal-notes`);
+}
+
+export async function fetchFombActionsByBill(billId: string) {
+    return fetchWithAuth(`/bills/${billId}/fomb-actions`);
+}
+
+export async function fetchFiscalNotesByAgency() {
+    return fetchWithAuth('/fiscal-notes/by-agency');
+}
+
+export async function fetchFiscalNotes(params?: { agency?: string; limit?: number; offset?: number }) {
+    const qs = new URLSearchParams();
+    if (params?.agency) qs.set('agency', params.agency);
+    if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.offset) qs.set('offset', String(params.offset));
+    const query = qs.toString() ? `?${qs}` : '';
+    return fetchWithAuth(`/fiscal-notes${query}`);
+}
+
+export async function fetchDashboardBriefing(userId?: string, refresh?: boolean) {
+    const qs = new URLSearchParams();
+    if (userId) qs.set('user_id', userId);
+    if (refresh) qs.set('refresh', 'true');
+    const query = qs.toString() ? `?${qs}` : '';
+    return fetchWithAuth(`/dashboard/briefing${query}`);
+}
+
+export async function fetchFombRisk(userId?: string) {
+    const qs = userId ? `?user_id=${userId}` : '';
+    return fetchWithAuth(`/dashboard/fomb-risk${qs}`);
+}
+
+export async function fetchPortfolioSummary(userId?: string) {
+    const qs = userId ? `?user_id=${userId}` : '';
+    return fetchWithAuth(`/dashboard/portfolio-summary${qs}`);
+}

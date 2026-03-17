@@ -11,6 +11,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import ChartCard from '@/components/ChartCard';
+import MorningBriefing from '@/components/dashboard/MorningBriefing';
+import FiscalIntelligenceFeed from '@/components/dashboard/FiscalIntelligenceFeed';
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -186,6 +188,14 @@ export default function DashboardPage() {
                             )}
                         </div>
                     </ChartCard>
+                </div>
+
+                {/* Fiscal Intelligence Row */}
+                <div className="lg:col-span-3">
+                    <MorningBriefing />
+                </div>
+                <div className="lg:col-span-3">
+                    <FiscalIntelligenceFeed />
                 </div>
             </div>
         </div>

@@ -6,6 +6,7 @@ import { BillsScraperModule } from './bills/bills.module';
 import { VotesScraperModule } from './votes/votes.module';
 import { BillTextScraperModule } from './bill-text/bill-text.module';
 import { ScraperSchedulerModule } from './scheduler/scraper-scheduler.module';
+import { FiscalIntelligenceScraperModule } from './fiscal-intelligence/fiscal-intelligence-scraper.module';
 
 @Module({
     imports: [
@@ -16,6 +17,7 @@ import { ScraperSchedulerModule } from './scheduler/scraper-scheduler.module';
         VotesScraperModule,
         BillTextScraperModule,
         ScraperSchedulerModule,
+        FiscalIntelligenceScraperModule,
     ],
     exports: [PipelineModule],
 })

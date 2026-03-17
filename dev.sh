@@ -7,13 +7,18 @@ echo "Limpiando procesos anteriores..."
 killall node 2>/dev/null
 sleep 1
 
-echo "Iniciando Redis via Docker..."
-cd "$ROOT" && docker compose up redis -d
+echo "Iniciando Postgres y Redis via Docker..."
+cd "$ROOT" && docker compose up postgres redis -d
 echo "Esperando que Redis esté listo..."
 until docker compose exec redis redis-cli ping 2>/dev/null | grep -q PONG; do
   sleep 1
 done
 echo "Redis listo en :6380"
+echo "Esperando que Postgres esté listo..."
+until docker compose exec postgres pg_isready -U postgres -d sutra_monitor 2>/dev/null | grep -q "accepting connections"; do
+  sleep 1
+done
+echo "Postgres listo en :5433"
 
 echo "Iniciando sutra-dashboard en :3000..."
 cd "$ROOT/apps/sutra-dashboard" && pnpm dev &

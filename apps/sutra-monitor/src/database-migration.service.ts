@@ -372,6 +372,69 @@ export class DatabaseMigrationService implements OnModuleInit {
             await this.seedLegislators();
             this.logger.log(`✅ Activated 2025-2028 incumbents (27 senators + 51 representatives)`);
 
+            // ══════════════════════════════════════════════════════════════
+            // FISCAL INTELLIGENCE MODULE — Tables
+            // ══════════════════════════════════════════════════════════════
+            this.logger.log('📦 Creating Fiscal Intelligence Module tables...');
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS fiscal_notes (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    bill_id UUID REFERENCES sutra_measures(id) ON DELETE SET NULL,
+                    bill_number VARCHAR(100),
+                    source_agency VARCHAR(50),
+                    source_url VARCHAR(500),
+                    document_url VARCHAR(500),
+                    title VARCHAR(500),
+                    summary TEXT,
+                    fiscal_impact_amount DECIMAL(15,2),
+                    fiscal_impact_type VARCHAR(20) CHECK (fiscal_impact_type IN ('cost', 'saving', 'revenue', 'neutral', 'undetermined')) DEFAULT 'undetermined',
+                    published_at TIMESTAMPTZ,
+                    scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    raw_content TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            `);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_fiscal_notes_bill_id ON fiscal_notes(bill_id)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_fiscal_notes_source_agency ON fiscal_notes(source_agency)`);
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS fomb_actions (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    bill_id UUID REFERENCES sutra_measures(id) ON DELETE SET NULL,
+                    law_number VARCHAR(100),
+                    bill_number VARCHAR(100),
+                    action_type VARCHAR(40) CHECK (action_type IN ('objection', 'section_204_certification', 'call_to_not_implement', 'compliance_determination', 'under_review')) DEFAULT 'under_review',
+                    implementation_status VARCHAR(20) CHECK (implementation_status IN ('blocked', 'under_review', 'compliant', 'negotiating')) DEFAULT 'under_review',
+                    fomb_letter_date TIMESTAMPTZ,
+                    fomb_letter_url VARCHAR(500),
+                    summary TEXT,
+                    promesa_basis TEXT,
+                    fiscal_plan_reference VARCHAR(200),
+                    raw_content TEXT,
+                    scraped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            `);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_fomb_actions_law_number ON fomb_actions(law_number)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_fomb_actions_impl_status ON fomb_actions(implementation_status)`);
+
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS dashboard_briefings (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL,
+                    briefing_date DATE NOT NULL,
+                    content JSONB NOT NULL DEFAULT '{}'::jsonb,
+                    generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, briefing_date)
+                )
+            `);
+
+            this.logger.log('✅ Fiscal Intelligence Module tables created');
+
         } catch (error: any) {
             this.logger.error('❌ Migration/Seeding failed:', error.message);
         }
