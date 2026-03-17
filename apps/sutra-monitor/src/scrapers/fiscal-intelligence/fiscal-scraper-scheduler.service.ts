@@ -4,6 +4,7 @@ import { OgpScraper } from './ogp.scraper';
 import { HaciendaScraper } from './hacienda.scraper';
 import { FombScraper } from './fomb.scraper';
 import { pool } from '@lwbeta/db';
+import { ScraperRunRecorder } from '../scraper-run.recorder';
 
 @Injectable()
 export class FiscalScraperSchedulerService {
@@ -13,6 +14,7 @@ export class FiscalScraperSchedulerService {
     private readonly ogpScraper: OgpScraper,
     private readonly haciendaScraper: HaciendaScraper,
     private readonly fombScraper: FombScraper,
+    private readonly recorder: ScraperRunRecorder,
   ) {}
 
   private async isEnabled(id: string): Promise<boolean> {
@@ -29,12 +31,15 @@ export class FiscalScraperSchedulerService {
   async runOgpScraper() {
     if (!(await this.isEnabled('ogp'))) { this.logger.debug('OGP scraper disabled, skipping'); return; }
     this.logger.log('Running OGP fiscal scraper...');
+    const runId = await this.recorder.start('ogp');
     try {
       const notes = await this.ogpScraper.scrape();
       const { newCount, updatedCount } = await this.ogpScraper.upsertNotes(notes);
+      await this.recorder.complete(runId, notes.length, newCount, updatedCount);
       this.logger.log(`OGP: ${newCount} new, ${updatedCount} updated`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      await this.recorder.fail(runId, msg);
       this.logger.warn(`OGP scraper run failed: ${msg}`);
     }
   }
@@ -44,12 +49,15 @@ export class FiscalScraperSchedulerService {
   async runHaciendaScraper() {
     if (!(await this.isEnabled('hacienda'))) { this.logger.debug('Hacienda scraper disabled, skipping'); return; }
     this.logger.log('Running Hacienda fiscal scraper...');
+    const runId = await this.recorder.start('hacienda');
     try {
       const notes = await this.haciendaScraper.scrape();
       const { newCount, updatedCount } = await this.haciendaScraper.upsertNotes(notes);
+      await this.recorder.complete(runId, notes.length, newCount, updatedCount);
       this.logger.log(`Hacienda: ${newCount} new, ${updatedCount} updated`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      await this.recorder.fail(runId, msg);
       this.logger.warn(`Hacienda scraper run failed: ${msg}`);
     }
   }
@@ -59,12 +67,15 @@ export class FiscalScraperSchedulerService {
   async runFombScraper() {
     if (!(await this.isEnabled('fomb'))) { this.logger.debug('FOMB scraper disabled, skipping'); return; }
     this.logger.log('Running FOMB scraper...');
+    const runId = await this.recorder.start('fomb');
     try {
       const actions = await this.fombScraper.scrape();
       const { newCount, updatedCount } = await this.fombScraper.upsertActions(actions);
+      await this.recorder.complete(runId, actions.length, newCount, updatedCount);
       this.logger.log(`FOMB: ${newCount} new, ${updatedCount} updated`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      await this.recorder.fail(runId, msg);
       this.logger.warn(`FOMB scraper run failed: ${msg}`);
     }
   }

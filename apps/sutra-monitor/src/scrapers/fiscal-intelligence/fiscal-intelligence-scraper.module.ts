@@ -4,6 +4,7 @@ import { HaciendaScraper } from './hacienda.scraper';
 import { FombScraper } from './fomb.scraper';
 import { FiscalScraperSchedulerService } from './fiscal-scraper-scheduler.service';
 import { DatabaseModule } from '../../modules/database/database.module';
+import { ScraperRunRecorder } from '../scraper-run.recorder';
 
 @Module({
   imports: [DatabaseModule],
@@ -12,6 +13,7 @@ import { DatabaseModule } from '../../modules/database/database.module';
     HaciendaScraper,
     FombScraper,
     FiscalScraperSchedulerService,
+    ScraperRunRecorder,
   ],
   exports: [OgpScraper, HaciendaScraper, FombScraper, FiscalScraperSchedulerService],
 })
