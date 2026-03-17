@@ -157,16 +157,20 @@ export class DatabaseMigrationService implements OnModuleInit {
             
             // Seed defaults explicitly as OFF
             const defaultScrapers = [
-                { id: 'legislators', cron: '0 6 * * *' },
-                { id: 'committees', cron: '30 6 * * *' },
-                { id: 'bills', cron: '0 */2 * * *' },
-                { id: 'votes', cron: '0 */4 * * *' },
-                { id: 'bill-text', cron: '0 2 * * *' }
+                { id: 'legislators', cron: '0 6 * * *', enabled: false },
+                { id: 'committees', cron: '30 6 * * *', enabled: false },
+                { id: 'bills', cron: '0 */2 * * *', enabled: false },
+                { id: 'votes', cron: '0 */4 * * *', enabled: false },
+                { id: 'bill-text', cron: '0 2 * * *', enabled: false },
+                // Fiscal intelligence scrapers — enabled by default
+                { id: 'ogp', cron: '0 0,6,12,18 * * *', enabled: true },
+                { id: 'hacienda', cron: '0 3,9,15,21 * * *', enabled: true },
+                { id: 'fomb', cron: '0 */4 * * *', enabled: true },
             ];
             for (const s of defaultScrapers) {
                 await pool.query(
-                    'INSERT INTO scraper_configs (id, cron_expression, is_enabled) VALUES ($1, $2, false) ON CONFLICT (id) DO NOTHING',
-                    [s.id, s.cron]
+                    'INSERT INTO scraper_configs (id, cron_expression, is_enabled) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
+                    [s.id, s.cron, s.enabled]
                 );
             }
             this.logger.log('✅ Scraper Configs table created & seeded');

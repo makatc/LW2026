@@ -12,6 +12,12 @@ const SCRAPERS = [
     { key: 'bill-text', label: 'Texto de Medidas', description: 'Extracción de PDFs legislativos' },
 ];
 
+const FISCAL_SCRAPERS = [
+    { key: 'ogp', label: 'OGP', description: 'Notas fiscales — Oficina de Gerencia y Presupuesto' },
+    { key: 'hacienda', label: 'Hacienda', description: 'Memoriales y ponencias legislativas' },
+    { key: 'fomb', label: 'FOMB', description: 'Acciones de la Junta de Supervisión Fiscal' },
+];
+
 export default function ScraperAdminPage() {
     const [status, setStatus] = useState<any>(null);
     const [configs, setConfigs] = useState<any[]>([]);
@@ -130,6 +136,38 @@ export default function ScraperAdminPage() {
                                     label={s.label}
                                     currentCron={conf?.cron_expression ?? '0 6 * * *'}
                                     isEnabled={conf?.is_enabled ?? false}
+                                    lastRunAt={lastRunMap[s.key] ?? conf?.last_run_at ?? null}
+                                    onSave={handleSaveConfig}
+                                    onTrigger={handleTrigger}
+                                    isTriggering={triggering === s.key}
+                                />
+                            );
+                        })}
+                    </div>
+                )}
+            </section>
+
+            {/* Fiscal Intelligence Scrapers */}
+            <section>
+                <h2 className="text-base font-semibold text-slate-700 mb-1">Inteligencia Fiscal</h2>
+                <p className="text-xs text-slate-400 mb-4">Notas fiscales de agencias gubernamentales. Activos por defecto.</p>
+                {loading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {FISCAL_SCRAPERS.map(s => (
+                            <div key={s.key} className="bg-white border border-slate-200 rounded-xl p-4 h-48 animate-pulse" />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {FISCAL_SCRAPERS.map(s => {
+                            const conf = configs.find(c => c.id === s.key);
+                            return (
+                                <ScraperCard
+                                    key={s.key}
+                                    id={s.key}
+                                    label={s.label}
+                                    currentCron={conf?.cron_expression ?? '0 */4 * * *'}
+                                    isEnabled={conf?.is_enabled ?? true}
                                     lastRunAt={lastRunMap[s.key] ?? conf?.last_run_at ?? null}
                                     onSave={handleSaveConfig}
                                     onTrigger={handleTrigger}

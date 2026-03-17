@@ -3,17 +3,19 @@ import { pool } from '@lwbeta/db';
 import { Public } from '../../auth/decorators';
 import { PipelineService } from '../../../scrapers/pipeline/pipeline.service';
 import { ScraperRunRecorder } from '../../../scrapers/scraper-run.recorder';
+import { FiscalScraperSchedulerService } from '../../../scrapers/fiscal-intelligence/fiscal-scraper-scheduler.service';
 import {
     legislatorsQueue, committeesQueue, billsQueue, votesQueue, billTextQueue, defaultJobOptions,
 } from '../../../queues';
 
-const VALID_SCRAPERS = ['legislators', 'committees', 'bills', 'votes', 'bill-text', 'all'];
+const VALID_SCRAPERS = ['legislators', 'committees', 'bills', 'votes', 'bill-text', 'ogp', 'hacienda', 'fomb', 'all'];
 
 @Controller('api/scraper')
 export class ScraperController {
     constructor(
         private readonly pipelineService: PipelineService,
         private readonly recorder: ScraperRunRecorder,
+        private readonly fiscalScheduler: FiscalScraperSchedulerService,
     ) {}
 
     @Post('trigger')
@@ -33,7 +35,21 @@ export class ScraperController {
             await billsQueue.add('manual-trigger', {}, defaultJobOptions);
             await votesQueue.add('manual-trigger', {}, defaultJobOptions);
             await billTextQueue.add('manual-trigger', {}, defaultJobOptions);
-            return { message: 'All scrapers queued', scrapers: VALID_SCRAPERS.filter(s => s !== 'all') };
+            this.fiscalScheduler.runOgpScraper().catch(() => {});
+            this.fiscalScheduler.runHaciendaScraper().catch(() => {});
+            this.fiscalScheduler.runFombScraper().catch(() => {});
+            return { message: 'All scrapers queued/started', scrapers: VALID_SCRAPERS.filter(s => s !== 'all') };
+        }
+
+        // Fiscal intelligence scrapers (no BullMQ — fire and forget)
+        const fiscalTriggerMap: Record<string, () => Promise<void>> = {
+            ogp: () => this.fiscalScheduler.runOgpScraper(),
+            hacienda: () => this.fiscalScheduler.runHaciendaScraper(),
+            fomb: () => this.fiscalScheduler.runFombScraper(),
+        };
+        if (fiscalTriggerMap[scraperName]) {
+            fiscalTriggerMap[scraperName]().catch(() => {});
+            return { message: `${scraperName} scraper started`, scraper: scraperName };
         }
 
         const queueMap: Record<string, any> = {

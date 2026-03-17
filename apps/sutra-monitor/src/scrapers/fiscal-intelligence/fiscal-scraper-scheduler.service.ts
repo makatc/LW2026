@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { OgpScraper } from './ogp.scraper';
 import { HaciendaScraper } from './hacienda.scraper';
 import { FombScraper } from './fomb.scraper';
+import { pool } from '@lwbeta/db';
 
 @Injectable()
 export class FiscalScraperSchedulerService {
@@ -14,9 +15,19 @@ export class FiscalScraperSchedulerService {
     private readonly fombScraper: FombScraper,
   ) {}
 
+  private async isEnabled(id: string): Promise<boolean> {
+    try {
+      const result = await pool.query('SELECT is_enabled FROM scraper_configs WHERE id = $1', [id]);
+      return result.rows[0]?.is_enabled ?? true;
+    } catch {
+      return true; // default enabled if DB unreachable
+    }
+  }
+
   // OGP: every 6 hours at :00
   @Cron('0 0,6,12,18 * * *', { name: 'fiscal-ogp-cron' })
   async runOgpScraper() {
+    if (!(await this.isEnabled('ogp'))) { this.logger.debug('OGP scraper disabled, skipping'); return; }
     this.logger.log('Running OGP fiscal scraper...');
     try {
       const notes = await this.ogpScraper.scrape();
@@ -31,6 +42,7 @@ export class FiscalScraperSchedulerService {
   // Hacienda: every 6 hours, offset 3 hours from OGP
   @Cron('0 3,9,15,21 * * *', { name: 'fiscal-hacienda-cron' })
   async runHaciendaScraper() {
+    if (!(await this.isEnabled('hacienda'))) { this.logger.debug('Hacienda scraper disabled, skipping'); return; }
     this.logger.log('Running Hacienda fiscal scraper...');
     try {
       const notes = await this.haciendaScraper.scrape();
@@ -45,6 +57,7 @@ export class FiscalScraperSchedulerService {
   // FOMB: every 4 hours (more urgent)
   @Cron('0 */4 * * *', { name: 'fiscal-fomb-cron' })
   async runFombScraper() {
+    if (!(await this.isEnabled('fomb'))) { this.logger.debug('FOMB scraper disabled, skipping'); return; }
     this.logger.log('Running FOMB scraper...');
     try {
       const actions = await this.fombScraper.scrape();
