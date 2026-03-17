@@ -40,56 +40,64 @@ export class SutraScraper implements OnModuleInit, OnModuleDestroy {
             // Wait for dynamic content to load
             await page.waitForTimeout(3000);
 
-            // Extract measures from the table/grid
+            // Extract measures via href-based DOM detection (works with React SPA)
+            // SUTRA renders measure numbers in link hrefs as /medidas/PC1234 (no space)
             const measures = await page.evaluate(() => {
                 const results: any[] = [];
-                const bodyText = document.body.innerText;
+                const seen = new Set<string>();
 
-                // Pattern: "Medida: XX0000" followed by details
-                const measurePattern = /Medida:\s*([A-Z]{1,4}\d{1,5})/g;
-                const matches = [...bodyText.matchAll(measurePattern)];
+                // Strategy 1: find all links pointing to measure detail pages
+                const links = Array.from(document.querySelectorAll('a[href*="/medidas/"]'));
+                links.forEach(a => {
+                    const href = (a as HTMLAnchorElement).href || a.getAttribute('href') || '';
+                    // Match /medidas/PC1234 or /medidas/PS 0034 (URL-encoded or not)
+                    const m = href.match(/\/medidas\/([A-Z]{1,4}\s*\d{1,5})/i);
+                    if (!m) return;
+                    const numero = m[1].replace(/\s+/g, '');
+                    if (seen.has(numero)) return;
+                    seen.add(numero);
 
-                // For each measure found, try to extract associated data
-                matches.forEach((match, idx) => {
-                    const numero = match[1];
-                    const startPos = match.index || 0;
-                    // Get text block after "Medida: XXX" (next ~500 chars)
-                    const block = bodyText.substring(startPos, startPos + 500);
+                    // Try to get surrounding row/card text for pre-fetching
+                    const container = (a as HTMLElement).closest(
+                        'tr, li, article, [class*="row"], [class*="item"], [class*="card"], [class*="measure"], [class*="medida"]'
+                    ) as HTMLElement | null;
+                    const blockText = container ? container.innerText : '';
 
-                    // Extract fields from this block
                     const extractField = (label: string) => {
-                        const patterns = [
-                            new RegExp(`${label}[:\\s]*([^\\n]+)`, 'i'),
-                            new RegExp(`${label}\\s*\\n\\s*([^\\n]+)`, 'i')
-                        ];
-                        for (const p of patterns) {
-                            const m = block.match(p);
-                            if (m && m[1]) return m[1].trim();
-                        }
-                        return null;
+                        const m2 = blockText.match(new RegExp(`${label}[:\\s]+([^\\n]{1,200})`, 'i'));
+                        return m2 ? m2[1].trim() : null;
                     };
 
-                    const radicada = extractField('Radicada');
-                    const titulo = extractField('Título');
-
-                    // Try to find the detail link for this measure
-                    const links = Array.from(document.querySelectorAll('a'));
-                    const detailLink = links.find(a => {
-                        const linkText = a.innerText?.trim().toLowerCase();
-                        const href = a.getAttribute('href') || '';
-                        // Look for "Detalle" link near this measure number
-                        return linkText === 'detalle' && href.includes('/medidas/');
-                    });
-
                     results.push({
-                        numero: numero,
-                        url: detailLink ? (detailLink as HTMLAnchorElement).href : `https://sutra.oslpr.org/medidas/${numero}`,
-                        fecha: radicada || new Date().toISOString().split('T')[0],
-                        titulo: titulo || `Medida ${numero}`,
-                        commission: null, // Will be extracted from detail page
-                        author: null
+                        numero,
+                        url: (a as HTMLAnchorElement).href,
+                        fecha: extractField('Radicada') || extractField('Fecha') || null,
+                        titulo: extractField('Título') || extractField('Titulo') || `Medida ${numero}`,
+                        commission: extractField('Comisi') || null,
+                        author: extractField('Autor') || extractField('Autores') || null,
                     });
                 });
+
+                // Strategy 2: fallback — look for measure numbers as plain text patterns
+                // in case links are not present but text mentions them
+                if (results.length === 0) {
+                    const bodyText = document.body.innerText;
+                    const numPattern = /\b(P[SC]|R[SC]|RCS|RCC|OA)\s*(\d{1,5})\b/g;
+                    let match;
+                    while ((match = numPattern.exec(bodyText)) !== null) {
+                        const numero = `${match[1]}${match[2]}`;
+                        if (seen.has(numero)) continue;
+                        seen.add(numero);
+                        results.push({
+                            numero,
+                            url: `https://sutra.oslpr.org/medidas/${numero}`,
+                            fecha: null,
+                            titulo: `Medida ${numero}`,
+                            commission: null,
+                            author: null,
+                        });
+                    }
+                }
 
                 return results;
             });
@@ -154,8 +162,10 @@ export class SutraScraper implements OnModuleInit, OnModuleDestroy {
                 };
 
                 const title = findMatch([
-                    /Título[:\.]?\s*(.+)(\n|$)/i,
-                    /^Título\s*\n(.+)/m // Title on next line
+                    /Título[:\.]*\s*(.+)/i,
+                    /^Título\s*\n(.+)/m
+                ]) || findMatch([
+                    /^(.{10,200})\n/m  // fallback: first non-empty line of content
                 ]) || 'Título no encontrado';
 
                 const commission = findMatch([

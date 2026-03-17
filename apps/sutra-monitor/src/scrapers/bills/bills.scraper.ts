@@ -96,37 +96,64 @@ export class BillsScraper implements BaseScraper {
             while (pageNum < MAX_PAGES) {
                 const pageBills = await page.evaluate(() => {
                     const results: any[] = [];
-                    const bodyText = document.body.innerText;
-                    const measurePattern = /Medida:\s*([A-Z]{1,4}\d{1,5})/g;
-                    const matches = [...bodyText.matchAll(measurePattern)];
+                    const seen = new Set<string>();
 
-                    matches.forEach((match) => {
-                        const numero = match[1];
-                        const startPos = match.index || 0;
-                        const block = bodyText.substring(startPos, startPos + 800);
+                    // Primary: find all medida detail links (SUTRA is a React SPA;
+                    // measure numbers appear in hrefs as /medidas/PC1234, no space)
+                    const links = Array.from(document.querySelectorAll('a[href*="/medidas/"]'));
+                    links.forEach(a => {
+                        const href = (a as HTMLAnchorElement).href || a.getAttribute('href') || '';
+                        const m = href.match(/\/medidas\/([A-Z]{1,4}\s*\d{1,5})/i);
+                        if (!m) return;
+                        const numero = m[1].replace(/\s+/g, '');
+                        if (seen.has(numero)) return;
+                        seen.add(numero);
+
+                        const container = (a as HTMLElement).closest(
+                            'tr, li, article, [class*="row"], [class*="item"], [class*="card"], [class*="measure"], [class*="medida"]'
+                        ) as HTMLElement | null;
+                        const blockText = container ? container.innerText : '';
 
                         const extractField = (label: string) => {
-                            const m = block.match(new RegExp(`${label}[:\\s]*([^\\n]{1,200})`, 'i'));
-                            return m ? m[1].trim() : null;
+                            const m2 = blockText.match(new RegExp(`${label}[:\\s]+([^\\n]{1,200})`, 'i'));
+                            return m2 ? m2[1].trim() : null;
                         };
-
-                        const links = Array.from(document.querySelectorAll('a'));
-                        const detailLink = links.find(a => {
-                            const href = a.getAttribute('href') || '';
-                            return href.includes('/medidas/') && href.includes(numero);
-                        });
 
                         results.push({
                             numero,
-                            titulo: extractField('Título') || `Medida ${numero}`,
-                            fecha: extractField('Radicada') || extractField('Fecha'),
-                            author: extractField('Autor') || extractField('Autores') || extractField('Presentado'),
-                            commission: extractField('Comisión') || extractField('Comision') || extractField('Referido'),
-                            url: detailLink
-                                ? (detailLink as HTMLAnchorElement).href
-                                : `https://sutra.oslpr.org/medidas/${numero}`,
+                            titulo: extractField('Título') || extractField('Titulo') || `Medida ${numero}`,
+                            fecha: extractField('Radicada') || extractField('Fecha') || null,
+                            author: extractField('Autor') || extractField('Autores') || extractField('Presentado') || null,
+                            commission: extractField('Comisi') || extractField('Referido') || null,
+                            url: (a as HTMLAnchorElement).href,
                         });
                     });
+
+                    // Fallback: look for measure number text patterns if no links found
+                    if (results.length === 0) {
+                        const bodyText = document.body.innerText;
+                        const numPattern = /\b(P[SC]|R[SC]|RCS|RCC|OA)\s*(\d{1,5})\b/g;
+                        let match;
+                        while ((match = numPattern.exec(bodyText)) !== null) {
+                            const numero = `${match[1]}${match[2]}`;
+                            if (seen.has(numero)) continue;
+                            seen.add(numero);
+                            const startPos = match.index || 0;
+                            const block = bodyText.substring(startPos, startPos + 600);
+                            const extractField = (label: string) => {
+                                const m2 = block.match(new RegExp(`${label}[:\\s]+([^\\n]{1,200})`, 'i'));
+                                return m2 ? m2[1].trim() : null;
+                            };
+                            results.push({
+                                numero,
+                                titulo: extractField('Título') || `Medida ${numero}`,
+                                fecha: extractField('Radicada') || extractField('Fecha') || null,
+                                author: extractField('Autor') || extractField('Autores') || null,
+                                commission: extractField('Comisi') || null,
+                                url: `https://sutra.oslpr.org/medidas/${numero}`,
+                            });
+                        }
+                    }
 
                     return results;
                 });

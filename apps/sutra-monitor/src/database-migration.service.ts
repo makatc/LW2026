@@ -435,6 +435,18 @@ export class DatabaseMigrationService implements OnModuleInit {
 
             this.logger.log('✅ Fiscal Intelligence Module tables created');
 
+            // ══════════════════════════════════════════════════════════════
+            // SYSTEM SETTINGS — Required by DiscoveryService cursor logic
+            // ══════════════════════════════════════════════════════════════
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS system_settings (
+                    key VARCHAR(50) PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            `);
+            this.logger.log('✅ system_settings table ensured');
+
         } catch (error: any) {
             this.logger.error('❌ Migration/Seeding failed:', error.message);
         }
