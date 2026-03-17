@@ -28,5 +28,32 @@ services:
       timeout: 5s
       retries: 5
 
+  lw-rag-engine:
+    build:
+      context: ./apps/lw-rag-engine
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=sutra_monitor
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/lw-rag-engine:/app
+      - /app/node_modules
+      - ./uploads/rag:/app/uploads
+
 volumes:
   postgres_data:

@@ -47,43 +47,16 @@ export class QueueModule implements OnModuleInit, OnModuleDestroy {
             this.workers.push(createVotesWorker(this.pipelineService));
             this.workers.push(createBillTextWorker(this.pipelineService));
 
-            // Schedule existing jobs
-            await ingestQueue.add('scheduled-ingest', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '0 */6 * * *' },
-            });
-            await discoveryQueue.add('scheduled-discovery', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '0 */12 * * *' },
-            });
-            await trackingQueue.add('scheduled-tracking', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '0 */4 * * *' },
-            });
+            // Clear any previously scheduled repeatable jobs
+            const queues = [ingestQueue, discoveryQueue, trackingQueue, legislatorsQueue, committeesQueue, billsQueue, votesQueue, billTextQueue];
+            for (const q of queues) {
+                const repeatableJobs = await q.getRepeatableJobs();
+                for (const job of repeatableJobs) {
+                    await q.removeRepeatableByKey(job.key);
+                }
+            }
 
-            // Schedule new scraper jobs
-            await legislatorsQueue.add('scheduled-legislators', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '0 6 * * *' }, // Daily at 6 AM
-            });
-            await committeesQueue.add('scheduled-committees', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '30 6 * * *' }, // Daily at 6:30 AM
-            });
-            await billsQueue.add('scheduled-bills', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '0 */2 * * *' }, // Every 2 hours
-            });
-            await votesQueue.add('scheduled-votes', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '0 */4 * * *' }, // Every 4 hours
-            });
-            await billTextQueue.add('scheduled-bill-text', {}, {
-                ...defaultJobOptions,
-                repeat: { pattern: '0 2 * * *' }, // Daily at 2 AM
-            });
-
-            this.logger.log('✅ BullMQ workers started and jobs scheduled (8 workers)');
+            this.logger.log('✅ BullMQ workers started. Automatic scraping on boot is disabled.');
         } catch (error: any) {
             this.logger.error('Failed to initialize BullMQ workers:', error.message);
             this.logger.warn('App will continue in cron-only mode');

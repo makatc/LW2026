@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body, BadRequestException, UseGuards } from '@nestjs/common';
-import { Roles, Public } from '../../auth/decorators';
-import { RolesGuard } from '../../auth/roles.guard';
+import { Controller, Get, Post, Put, Body, Param, BadRequestException } from '@nestjs/common';
+import { pool } from '@lwbeta/db';
+import { Public } from '../../auth/decorators';
 import { PipelineService } from '../../../scrapers/pipeline/pipeline.service';
 import { ScraperRunRecorder } from '../../../scrapers/scraper-run.recorder';
 import {
@@ -51,6 +51,65 @@ export class ScraperController {
         }
 
         throw new BadRequestException(`Unknown scraper: ${scraperName}`);
+    }
+
+    @Get('config')
+    @Public()
+    async getConfigs() {
+        const result = await pool.query('SELECT * FROM scraper_configs ORDER BY id ASC');
+        return result.rows;
+    }
+
+    @Put('config/:id')
+    @Public()
+    async updateConfig(
+        @Param('id') id: string,
+        @Body() body: { is_enabled: boolean; cron_expression?: string }
+    ) {
+        if (!VALID_SCRAPERS.includes(id) && id !== 'all') {
+            throw new BadRequestException(`Invalid scraper id: ${id}`);
+        }
+
+        const queueMap: Record<string, any> = {
+            legislators: legislatorsQueue,
+            committees: committeesQueue,
+            bills: billsQueue,
+            votes: votesQueue,
+            'bill-text': billTextQueue,
+        };
+
+        const queue = queueMap[id];
+        
+        await pool.query(
+            `UPDATE scraper_configs 
+             SET is_enabled = $1, cron_expression = COALESCE($2, cron_expression), updated_at = NOW()
+             WHERE id = $3`,
+            [body.is_enabled, body.cron_expression, id]
+        );
+
+        if (queue) {
+            // First, remove existing repeatable jobs
+            const repeatableJobs = await queue.getRepeatableJobs();
+            for (const job of repeatableJobs) {
+                if (job.name === `scheduled-${id}`) {
+                    await queue.removeRepeatableByKey(job.key);
+                }
+            }
+
+            // Schedule if enabled
+            if (body.is_enabled) {
+                const result = await pool.query('SELECT cron_expression FROM scraper_configs WHERE id = $1', [id]);
+                const cron = result.rows[0]?.cron_expression;
+                if (cron) {
+                    await queue.add(`scheduled-${id}`, {}, {
+                        ...defaultJobOptions,
+                        repeat: { pattern: cron }
+                    });
+                }
+            }
+        }
+
+        return { message: 'Configuration updated successfully' };
     }
 
     @Get('status')

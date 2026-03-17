@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/monitor';
 
 export async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -432,7 +432,7 @@ export async function uploadInteractionAttachment(interactionId: string, file: F
     const formData = new FormData();
     formData.append('file', file);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/monitor';
     const response = await fetch(`${API_URL}/api/interactions/${interactionId}/attachments`, {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -502,7 +502,7 @@ export function getCompliancePdfUrl(year?: number, semester?: number) {
     const params = new URLSearchParams();
     if (year) params.set('year', year.toString());
     if (semester) params.set('semester', semester.toString());
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const base = process.env.NEXT_PUBLIC_API_URL || '/api/monitor';
     return `${base}/api/compliance/report/pdf?${params.toString()}`;
 }
 
@@ -523,4 +523,15 @@ export async function fetchDojLobbyistsForLegislator(legislatorName: string) {
 
 export async function fetchDojLastScrape() {
     return fetchWithAuth('/api/doj-registry/last-scrape');
+}
+
+export async function getScraperConfigs() {
+    return fetchWithAuth('/api/scraper/config');
+}
+
+export async function updateScraperConfig(id: string, is_enabled: boolean, cron_expression?: string) {
+    return fetchWithAuth(`/api/scraper/config/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_enabled, cron_expression }),
+    });
 }

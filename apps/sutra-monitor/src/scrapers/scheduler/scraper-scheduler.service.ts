@@ -30,21 +30,10 @@ export class ScraperSchedulerService {
     private running = false;
 
     constructor(private readonly pipeline: PipelineService) {
-        // Enable if explicitly set, OR if no Redis URL is configured (assume no BullMQ)
-        const explicit = process.env.SCRAPER_CRON_ENABLED;
-        if (explicit !== undefined) {
-            this.enabled = explicit === 'true';
-        } else {
-            const hasRedis = !!(process.env.REDIS_URL || process.env.REDIS_HOST);
-            // Default: disabled when Redis is configured (BullMQ handles it)
-            this.enabled = !hasRedis;
-        }
+        // Disabled completely in favor of Database-driven dynamic BullMQ scheduler
+        this.enabled = false;
 
-        this.logger.log(
-            this.enabled
-                ? '✅ Cron scheduler ENABLED (fallback mode)'
-                : '⏸  Cron scheduler DISABLED (BullMQ handles scheduling)',
-        );
+        this.logger.log('⏸  Cron scheduler DISABLED (BullMQ handles scheduling dynamically)');
     }
 
     // ─── Legislators: daily 06:00 ─────────────────────────────────────────────

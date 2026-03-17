@@ -37,9 +37,9 @@ export class DatabaseMigrationService implements OnModuleInit {
             }
             this.logger.log('✅ sutra_measures schema updated');
 
-            // 2. CLEAR ALL EXISTING COMMISSIONS (to remove old/bad data)
-            await pool.query('DELETE FROM sutra_commissions');
-            this.logger.log('🧹 Cleared old commissions');
+            // 2. CLEAR ALL EXISTING COMMISSIONS removed to prevent user data loss
+            // await pool.query('DELETE FROM sutra_commissions');
+            this.logger.log('✅ Preserving existing commissions');
 
             // 3. SEED OFFICIAL COMMISSIONS (2025-2028)
             const commissions = {
@@ -143,6 +143,33 @@ export class DatabaseMigrationService implements OnModuleInit {
             // LEGISLATIVE INTELLIGENCE MODULE — Tables & Enums
             // ══════════════════════════════════════════════════════════════
             this.logger.log('📦 Creating Legislative Intelligence Module tables...');
+
+            // Create scraper_configs table for dynamic schedules
+            await pool.query(`
+                CREATE TABLE IF NOT EXISTS scraper_configs (
+                    id VARCHAR(50) PRIMARY KEY,
+                    is_enabled BOOLEAN DEFAULT false,
+                    cron_expression VARCHAR(50),
+                    last_run_at TIMESTAMPTZ,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            `);
+            
+            // Seed defaults explicitly as OFF
+            const defaultScrapers = [
+                { id: 'legislators', cron: '0 6 * * *' },
+                { id: 'committees', cron: '30 6 * * *' },
+                { id: 'bills', cron: '0 */2 * * *' },
+                { id: 'votes', cron: '0 */4 * * *' },
+                { id: 'bill-text', cron: '0 2 * * *' }
+            ];
+            for (const s of defaultScrapers) {
+                await pool.query(
+                    'INSERT INTO scraper_configs (id, cron_expression, is_enabled) VALUES ($1, $2, false) ON CONFLICT (id) DO NOTHING',
+                    [s.id, s.cron]
+                );
+            }
+            this.logger.log('✅ Scraper Configs table created & seeded');
 
             // 1. Enums (CREATE TYPE IF NOT EXISTS via DO block)
             await pool.query(`
@@ -321,14 +348,14 @@ export class DatabaseMigrationService implements OnModuleInit {
             this.logger.log('✅ All Legislative Intelligence Module tables created');
 
             // ══════════════════════════════════════════════════════════════
-            // SEED 78 LEGISLATORS (if not present)
+            // SYNC 78 LEGISLATORS — deactivate former, activate incumbents
             // ══════════════════════════════════════════════════════════════
             // Ensure unique constraint for idempotent seeding
             await pool.query(`
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_legislators_full_name
                 ON legislators(full_name)
             `);
-            // Clean up garbage data from scraper (e.g. "Representantes", "Ver Todos Los...")
+            // Clean up garbage rows from scraper (e.g. "Representantes", "Ver Todos Los...")
             await pool.query(`
                 DELETE FROM legislators
                 WHERE full_name IN ('Representantes', 'Ver Todos Los Representates', 'Ver Todos Los Senadores', 'Senadores')
@@ -336,14 +363,14 @@ export class DatabaseMigrationService implements OnModuleInit {
                    OR LENGTH(full_name) < 5
             `);
 
-            const legCount = await pool.query('SELECT COUNT(*) FROM legislators WHERE is_active = true');
-            const activeCount = parseInt(legCount.rows[0].count, 10);
-            if (activeCount < 50) {
-                this.logger.log(`⚠️ Only ${activeCount} active legislators found. Seeding 78 legislators...`);
-                await this.seedLegislators();
-            } else {
-                this.logger.log(`✅ ${activeCount} active legislators already present`);
-            }
+            // Step 1: Mark ALL currently active legislators as inactive first
+            // (will re-activate only the current 78 incumbents below)
+            await pool.query(`UPDATE legislators SET is_active = false WHERE is_active = true`);
+            this.logger.log('🔄 Cleared active flag — will re-activate 2025-2028 incumbents only');
+
+            // Step 2: Upsert all 78 current incumbents as active
+            await this.seedLegislators();
+            this.logger.log(`✅ Activated 2025-2028 incumbents (27 senators + 51 representatives)`);
 
         } catch (error: any) {
             this.logger.error('❌ Migration/Seeding failed:', error.message);

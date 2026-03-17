@@ -270,6 +270,9 @@ export class LegislatorsScraper implements BaseScraper {
         let newCount = 0;
         let updatedCount = 0;
 
+        // Track which DB IDs are part of the current scrape
+        const activeIds: string[] = [];
+
         for (const l of legislators) {
             const hash = crypto.createHash('sha256').update(JSON.stringify(l)).digest('hex');
 
@@ -288,34 +291,61 @@ export class LegislatorsScraper implements BaseScraper {
                      l.email || null, l.phone || null, l.office || null,
                      l.photo_url || null, l.source_url, hash]
                 );
+                const newId = ins.rows[0]?.id;
+                if (newId) activeIds.push(newId);
                 newCount++;
                 await this.changeEvents?.record({
                     entityType: 'legislator',
                     eventType: 'created',
-                    entityId: ins.rows[0]?.id,
+                    entityId: newId,
                     scraperName: this.scraperName,
                     summary: `New legislator: ${l.full_name} (${l.chamber}, ${l.party ?? 'no party'})`,
                     after: { full_name: l.full_name, chamber: l.chamber, party: l.party },
                 });
-            } else if (existing.rows[0].hash !== hash) {
-                await this.db.query(
-                    `UPDATE legislators SET
-                        party = $1, district = $2, email = $3, phone = $4, office = $5,
-                        photo_url = $6, source_url = $7, hash = $8, scraped_at = NOW(), updated_at = NOW()
-                     WHERE id = $9`,
-                    [l.party || null, l.district || null, l.email || null,
-                     l.phone || null, l.office || null, l.photo_url || null,
-                     l.source_url, hash, existing.rows[0].id]
-                );
-                updatedCount++;
-                await this.changeEvents?.record({
-                    entityType: 'legislator',
-                    eventType: 'updated',
-                    entityId: existing.rows[0].id,
-                    scraperName: this.scraperName,
-                    summary: `Updated legislator: ${l.full_name} (${l.chamber})`,
-                    after: { full_name: l.full_name, chamber: l.chamber, party: l.party },
-                });
+            } else {
+                const existingId = existing.rows[0].id;
+                activeIds.push(existingId);
+                if (existing.rows[0].hash !== hash) {
+                    await this.db.query(
+                        `UPDATE legislators SET
+                            party = $1, district = $2, email = $3, phone = $4, office = $5,
+                            photo_url = $6, source_url = $7, hash = $8, is_active = true,
+                            scraped_at = NOW(), updated_at = NOW()
+                         WHERE id = $9`,
+                        [l.party || null, l.district || null, l.email || null,
+                         l.phone || null, l.office || null, l.photo_url || null,
+                         l.source_url, hash, existingId]
+                    );
+                    updatedCount++;
+                    await this.changeEvents?.record({
+                        entityType: 'legislator',
+                        eventType: 'updated',
+                        entityId: existingId,
+                        scraperName: this.scraperName,
+                        summary: `Updated legislator: ${l.full_name} (${l.chamber})`,
+                        after: { full_name: l.full_name, chamber: l.chamber, party: l.party },
+                    });
+                } else {
+                    // Ensure existing legislators seen in this scrape are marked active
+                    await this.db.query(
+                        'UPDATE legislators SET is_active = true WHERE id = $1 AND is_active = false',
+                        [existingId]
+                    );
+                }
+            }
+        }
+
+        // Mark any legislator NOT seen in this scrape as inactive (former incumbents)
+        if (activeIds.length > 0) {
+            const placeholders = activeIds.map((_, i) => `$${i + 1}`).join(', ');
+            const deactivated = await this.db.query(
+                `UPDATE legislators SET is_active = false, updated_at = NOW()
+                 WHERE id NOT IN (${placeholders}) AND is_active = true
+                 RETURNING full_name, chamber`,
+                activeIds
+            );
+            if (deactivated.rows.length > 0) {
+                this.logger.log(`Deactivated ${deactivated.rows.length} former legislators: ${deactivated.rows.map((r: any) => r.full_name).join(', ')}`);
             }
         }
 

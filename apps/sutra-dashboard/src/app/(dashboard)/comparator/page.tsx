@@ -717,7 +717,7 @@ export default function ComparatorPage() {
                         <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tipos de cambio detectados</p>
                           <div className="flex flex-wrap gap-2">
-                            {[...new Set(result.chunkComparisons.map((c) => c.changeType).filter(Boolean))].map((type) => {
+                            {Array.from(new Set(result.chunkComparisons.map((c) => c.changeType).filter(Boolean))).map((type) => {
                               const count = result.chunkComparisons.filter((c) => c.changeType === type).length;
                               const labels: Record<string, { label: string; color: string }> = {
                                 obligation_shift:     { label: 'Cambio de obligación', color: 'bg-red-100 text-red-700 border-red-200' },

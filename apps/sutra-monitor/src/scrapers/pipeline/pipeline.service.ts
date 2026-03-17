@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { pool } from '@lwbeta/db';
 import { LegislatorsScraper } from '../legislators/legislators.scraper';
 import { CommitteesScraper } from '../committees/committees.scraper';
 import { BillsScraper } from '../bills/bills.scraper';
@@ -68,13 +69,24 @@ export class PipelineService {
     async runSingle(scraperName: string): Promise<PipelineResult> {
         this.logger.log(`Running single scraper: ${scraperName}`);
 
+        let result: PipelineResult;
         switch (scraperName) {
-            case 'legislators': return this.legislatorsScraper.runPipeline();
-            case 'committees': return this.committeesScraper.runPipeline();
-            case 'bills': return this.billsScraper.runPipeline();
-            case 'votes': return this.votesScraper.runPipeline();
-            case 'bill-text': return this.billTextScraper.runPipeline();
+            case 'legislators': result = await this.legislatorsScraper.runPipeline(); break;
+            case 'committees': result = await this.committeesScraper.runPipeline(); break;
+            case 'bills': result = await this.billsScraper.runPipeline(); break;
+            case 'votes': result = await this.votesScraper.runPipeline(); break;
+            case 'bill-text': result = await this.billTextScraper.runPipeline(); break;
             default: throw new Error(`Unknown scraper: ${scraperName}`);
         }
+
+        // Update last_run_at in scraper_configs
+        try {
+            await pool.query(
+                'UPDATE scraper_configs SET last_run_at = NOW() WHERE id = $1',
+                [scraperName]
+            );
+        } catch { /* non-critical */ }
+
+        return result;
     }
 }

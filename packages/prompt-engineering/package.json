@@ -1,0 +1,15 @@
+{
+  "name": "@lwbeta/prompt-engineering",
+  "version": "0.0.1",
+  "description": "Prompt templates for LegalWatch advocacy document generation",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

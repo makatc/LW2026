@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; }
+
+/* Panel dividers — stronger visual separation */
+.panel-left  { border-right: 1.5px solid #cbd5e1 !important; }
+.panel-right { border-left:  1.5px solid #cbd5e1 !important; }
+
+:root {
+  --panel-left: 280px;
+  --panel-right: 380px;
+}
+
+.panel-left { width: var(--panel-left); min-width: var(--panel-left); }
+.panel-right { width: var(--panel-right); min-width: var(--panel-right); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Chat markdown */
+.chat-markdown p { margin: 0.5em 0; }
+.chat-markdown ul { padding-left: 1.5em; margin: 0.5em 0; }
+.chat-markdown strong { font-weight: 600; }
+.chat-markdown code { background: #f1f5f9; color: #1e293b; padding: 0.1em 0.3em; border-radius: 3px; font-size: 0.9em; border: 1px solid #e2e8f0; }
