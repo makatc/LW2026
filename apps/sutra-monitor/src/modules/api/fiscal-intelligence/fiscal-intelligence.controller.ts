@@ -2,7 +2,7 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { FiscalIntelligenceService } from './fiscal-intelligence.service';
 import { Public } from '../../auth/decorators';
 
-@Controller('api')
+@Controller('')
 @Public()
 export class FiscalIntelligenceController {
   constructor(private readonly service: FiscalIntelligenceService) {}
