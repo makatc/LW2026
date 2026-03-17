@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { fetchFombRecent, fetchFiscalNotes, fetchFiscalNotesByBill, fetchFombActionsByBill } from '@/lib/api';
 
@@ -89,7 +90,17 @@ function FombTab() {
                     <span className={`text-xs px-2 py-0.5 rounded font-semibold ${STATUS_COLORS[item.implementation_status] || 'bg-slate-100 text-slate-700'}`}>
                       {STATUS_LABELS[item.implementation_status] || item.implementation_status}
                     </span>
-                    <span className="text-xs font-bold text-slate-900">{item.law_number || item.bill_number || 'N/A'}</span>
+                    {item.bill_id ? (
+                      <Link
+                        href={`/medidas/${item.bill_id}`}
+                        className="text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:underline"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {item.law_number || item.bill_number || 'N/A'}
+                      </Link>
+                    ) : (
+                      <span className="text-xs font-bold text-slate-900">{item.law_number || item.bill_number || 'N/A'}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {item.fomb_letter_date && (
@@ -167,7 +178,19 @@ function NotesTab() {
                     <span className={`text-xs px-2 py-0.5 rounded font-semibold ${AGENCY_COLORS[item.source_agency] || 'bg-slate-100 text-slate-700'}`}>
                       {item.source_agency}
                     </span>
-                    {item.bill_number && <span className="text-xs font-bold text-slate-900">{item.bill_number}</span>}
+                    {item.bill_number && (
+                      item.bill_id ? (
+                        <Link
+                          href={`/medidas/${item.bill_id}`}
+                          className="text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:underline"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {item.bill_number}
+                        </Link>
+                      ) : (
+                        <span className="text-xs font-bold text-slate-900">{item.bill_number}</span>
+                      )
+                    )}
                     {item.fiscal_impact_type && (
                       <span className={`text-xs px-1.5 py-0.5 rounded ${IMPACT_COLORS[item.fiscal_impact_type] || 'bg-slate-100 text-slate-700'}`}>
                         {IMPACT_LABELS[item.fiscal_impact_type] || item.fiscal_impact_type}

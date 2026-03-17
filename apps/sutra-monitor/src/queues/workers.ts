@@ -172,3 +172,27 @@ export const createBillTextWorker = (pipelineService: any) => {
         { connection: connection as any, concurrency: 1 }
     );
 };
+
+// ─── Function 16: Contract Analyzer worker ──────────────────────────────────
+
+export const createContractAnalysisWorker = (contractAnalyzerService: any) => {
+    return new Worker(
+        'contract-analysis-queue',
+        async (job) => {
+            const analysisId: string = job.data.analysisId;
+            logger.log(`Processing contract-analysis job ${job.id} for analysis ${analysisId}`);
+            try {
+                await contractAnalyzerService.processAnalysis(analysisId);
+                logger.log(`contract-analysis job ${job.id} (${analysisId}) completed`);
+                return { success: true, analysisId };
+            } catch (error: any) {
+                logger.error(`contract-analysis job ${job.id} (${analysisId}) failed:`, error);
+                throw error;
+            }
+        },
+        {
+            connection: connection as any,
+            concurrency: 2, // Allow 2 concurrent contract analyses
+        }
+    );
+};

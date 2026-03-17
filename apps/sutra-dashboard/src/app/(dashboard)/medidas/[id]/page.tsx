@@ -5,6 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fetchBillDetail } from '@/lib/api';
 import { Tabs } from '@/components/ui/Tabs';
+import BillFiscalIntelligence from '@/components/bills/BillFiscalIntelligence';
+import BillAiSummaries from '@/components/bills/BillAiSummaries';
+import BillViabilityWidget from '@/components/bills/BillViabilityWidget';
 
 const COMPARATOR_PATH = '/comparator';
 
@@ -132,6 +135,9 @@ export default function BillDetailPage() {
         { id: 'historial', label: `Historial (${bill.actions?.length ?? 0})` },
         { id: 'versiones', label: `Versiones (${bill.versions?.length ?? 0})` },
         ...(bill.votes?.length > 0 ? [{ id: 'votaciones', label: `Votaciones (${bill.votes.length})` }] : []),
+        { id: 'fiscal', label: 'Inteligencia Fiscal' },
+        { id: 'resumenes', label: 'Resúmenes IA' },
+        { id: 'predictivo', label: 'Análisis Predictivo' },
     ];
 
     return (
@@ -160,7 +166,42 @@ export default function BillDetailPage() {
                             {bill.titulo}
                         </h1>
                     </div>
-                    <div className="flex gap-2 shrink-0">
+                    <div className="flex gap-2 shrink-0 flex-wrap">
+                        {/* Comparator deep-link */}
+                        {bill.versions && bill.versions.filter(v => v.pdf_url).length >= 2 ? (
+                            <button
+                                onClick={() => {
+                                    const withPdf = [...bill.versions]
+                                        .filter(v => v.pdf_url)
+                                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                                    const params = new URLSearchParams({
+                                        source_pdf: withPdf[1].pdf_url!,
+                                        source_label: `${bill.numero} — ${withPdf[1].version_note}`,
+                                        target_pdf: withPdf[0].pdf_url!,
+                                        target_label: `${bill.numero} — ${withPdf[0].version_note}`,
+                                    });
+                                    router.push(`${COMPARATOR_PATH}?${params.toString()}`);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-indigo-300 rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors font-medium"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                Comparar Versiones
+                            </button>
+                        ) : bill.versions && bill.versions.filter(v => v.pdf_url).length === 1 ? (
+                            <a
+                                href={`http://localhost:3002/comparator?prefill_bill_id=${encodeURIComponent(bill.id)}&prefill_bill_number=${encodeURIComponent(bill.numero)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-indigo-300 rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors font-medium"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                Abrir en Comparador ↗
+                            </a>
+                        ) : null}
                         <a
                             href={bill.source_url || `https://sutra.oslpr.org/osl/medida/${bill.numero}`}
                             target="_blank"
@@ -212,6 +253,17 @@ export default function BillDetailPage() {
             )}
             {activeTab === 'votaciones' && (
                 <VotacionesTab votes={bill.votes} />
+            )}
+            {activeTab === 'fiscal' && (
+                <BillFiscalIntelligence billId={bill.id} />
+            )}
+            {activeTab === 'resumenes' && (
+                <BillAiSummaries billId={bill.id} billNumber={bill.numero} />
+            )}
+            {activeTab === 'predictivo' && (
+                <div className="space-y-4">
+                    <BillViabilityWidget billId={bill.id} />
+                </div>
             )}
         </div>
     );

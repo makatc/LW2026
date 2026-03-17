@@ -7,6 +7,7 @@ import { ConfigTopics } from './components/ConfigTopics';
 import { ConfigCommissions } from './components/ConfigCommissions';
 import { ConfigWatchlist } from './components/ConfigWatchlist';
 import { ConfigWebhooks } from './components/ConfigWebhooks';
+import BrandTemplateWizard from '@/components/brand-templates/BrandTemplateWizard';
 
 const MENU_TABS = [
     { id: 'keywords', label: 'Palabras Clave', icon: '🔍' },
@@ -14,6 +15,7 @@ const MENU_TABS = [
     { id: 'commissions', label: 'Comisiones', icon: '🏛️' },
     { id: 'watchlist', label: 'Medidas (Watchlist)', icon: '📜' },
     { id: 'webhooks', label: 'Notificaciones', icon: '🔔' },
+    { id: 'plantillas', label: 'Plantillas', icon: '🎨' },
 ];
 
 export default function ConfigPage() {
@@ -27,11 +29,9 @@ export default function ConfigPage() {
                     <span className="text-xl">💡</span>
                 </div>
                 <div>
-                    <h3 className="font-bold text-blue-900 text-lg">Personaliza tu Monitoreo</h3>
+                    <h3 className="font-bold text-blue-900 text-lg">Centro de Control</h3>
                     <p className="text-blue-700/80 mt-1 text-sm leading-relaxed">
-                        Aquí defines qué es importante para ti. Agrega <strong>Palabras Clave</strong> para recibir alertas inmediatas,
-                        sigue <strong>Medidas Específicas</strong> para rastrear su trámite, y configura tus <strong>Notificaciones</strong>
-                        para recibir todo en Discord o Telegram.
+                        Aquí tienes el control total de tu experiencia en LegalWatch. Configura <strong>Palabras Clave</strong> y <strong>Temas</strong> para detectar automáticamente lo que te importa, sigue <strong>Comisiones</strong> específicas, mantén tu <strong>Watchlist</strong> de medidas al día, y gestiona cómo recibes tus alertas en <strong>Discord o Telegram</strong>. También puedes crear y administrar tus <strong>Plantillas de Documentos</strong> con tu identidad visual.
                     </p>
                 </div>
             </div>
@@ -49,6 +49,7 @@ export default function ConfigPage() {
                     {activeTab === 'commissions' && <ConfigCommissions />}
                     {activeTab === 'watchlist' && <ConfigWatchlist />}
                     {activeTab === 'webhooks' && <ConfigWebhooks />}
+                    {activeTab === 'plantillas' && <BrandTemplateWizard />}
                 </div>
             </div>
         </div>

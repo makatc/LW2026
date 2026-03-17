@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchBillsEnhanced, fetchBillsSummary } from '@/lib/api';
+import ComparatorLink from '@/components/bills/ComparatorLink';
 
 const PAGE_SIZE = 50;
 
@@ -161,13 +162,14 @@ export default function MedidasPage() {
                                     <th className="px-5 py-3 font-semibold text-slate-700">Autor</th>
                                     <th className="px-5 py-3 font-semibold text-slate-700">Estado</th>
                                     <th className="px-5 py-3 font-semibold text-slate-700 whitespace-nowrap">Fecha</th>
+                                    <th className="px-5 py-3 font-semibold text-slate-700 whitespace-nowrap">Comparar</th>
                                     <th className="px-5 py-3 font-semibold text-slate-700"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {bills.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-5 py-16 text-center text-slate-400">
+                                        <td colSpan={8} className="px-5 py-16 text-center text-slate-400">
                                             <p className="text-lg mb-1">No se encontraron medidas</p>
                                             <p className="text-sm">
                                                 {debouncedSearch || billType
@@ -264,6 +266,14 @@ function BillRow({ bill }: { bill: any }) {
             </td>
             <td className="px-5 py-3 text-slate-400 text-xs whitespace-nowrap">
                 {fecha || '—'}
+            </td>
+            <td className="px-5 py-3" onClick={e => e.stopPropagation()}>
+                <ComparatorLink
+                    billId={bill.id}
+                    billNumber={bill.numero}
+                    billTitle={bill.titulo}
+                    hasVersions={!!(bill.versions_count && bill.versions_count >= 1)}
+                />
             </td>
             <td className="px-5 py-3" onClick={e => e.stopPropagation()}>
                 <a

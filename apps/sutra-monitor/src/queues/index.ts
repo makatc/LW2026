@@ -36,3 +36,9 @@ export const defaultJobOptions = {
         count: 500, // Keep last 500 failed jobs for debugging
     },
 };
+
+// Function 16: Contract Analyzer queue (declared after defaultJobOptions to avoid TDZ)
+export const contractAnalysisQueue = new Queue('contract-analysis-queue', {
+    connection: connection as any,
+    defaultJobOptions,
+});

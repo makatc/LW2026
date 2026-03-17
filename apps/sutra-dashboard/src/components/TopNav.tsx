@@ -8,7 +8,10 @@ import { useAuth } from '@/contexts/AuthContext';
 const NAV_ITEMS = [
     { label: 'Dashboard', href: '/' },
     { label: 'Comparador', href: '/comparator' },
-    { label: 'LW Dossier', href: '/dossier' },
+    { label: 'Dossier', href: '/dossier' },
+    { label: 'Medidas', href: '/medidas' },
+    { label: 'Legisladores', href: '/legisladores' },
+    { label: 'Inteligencia', href: '/inteligencia-avanzada' },
 ];
 
 export default function TopNav() {
@@ -16,7 +19,6 @@ export default function TopNav() {
     const { user, logout } = useAuth();
 
     return (
-
         <nav className="bg-[#2B3544] border-b border-[#363E4D] px-6 py-1.5 flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-10">
@@ -32,7 +34,9 @@ export default function TopNav() {
                 {/* Main Navigation */}
                 <div className="flex items-center gap-1">
                     {NAV_ITEMS.map((item) => {
-                        const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                        const isActive = item.href === '/'
+                            ? pathname === '/'
+                            : pathname === item.href || pathname.startsWith(item.href + '/');
                         return (
                             <Link
                                 key={item.href}
@@ -67,7 +71,6 @@ export default function TopNav() {
 
             {/* Right Side: Logout */}
             <div className="flex items-center">
-                {/* Logout Button */}
                 <button
                     onClick={logout}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-gray-300 hover:text-white hover:bg-[#363E4D] transition-all text-xs font-semibold"

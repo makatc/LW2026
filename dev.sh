@@ -21,17 +21,17 @@ done
 echo "Postgres listo en :5433"
 
 echo "Iniciando sutra-dashboard en :3000..."
-cd "$ROOT/apps/sutra-dashboard" && pnpm dev &
+cd "$ROOT/apps/sutra-dashboard" && npm run dev &
 DASHBOARD_PID=$!
 
 echo "Iniciando sutra-monitor en :3001..."
-cd "$ROOT/apps/sutra-monitor" && pnpm start:dev &
+cd "$ROOT/apps/sutra-monitor" && npm run start:dev &
 MONITOR_PID=$!
 
 echo "Iniciando legitwatch-comparator en :3002..."
 (
   while true; do
-    cd "$ROOT/apps/legitwatch-comparator" && pnpm start:dev
+    cd "$ROOT/apps/legitwatch-comparator" && npm run start:dev
     echo "Comparador se detuvo. Reiniciando en 3 segundos..."
     sleep 3
   done
@@ -39,11 +39,11 @@ echo "Iniciando legitwatch-comparator en :3002..."
 COMPARATOR_PID=$!
 
 echo "Iniciando lw-dossier en :3003..."
-cd "$ROOT/apps/lw-dossier" && pnpm dev &
+cd "$ROOT/apps/lw-dossier" && npm run dev &
 DOSSIER_PID=$!
 
 echo "Iniciando lw-rag-engine en :3004..."
-cd "$ROOT/apps/lw-rag-engine" && pnpm start:dev &
+cd "$ROOT/apps/lw-rag-engine" && npm run start:dev &
 RAG_PID=$!
 
 echo ""

@@ -451,9 +451,342 @@ export class DatabaseMigrationService implements OnModuleInit {
             `);
             this.logger.log('✅ system_settings table ensured');
 
+            // ══════════════════════════════════════════════════════════════
+            // ADVANCED INTELLIGENCE MODULES — Tables (Functions 11, 13-16)
+            // ══════════════════════════════════════════════════════════════
+            await this.runAdvancedIntelligenceMigrations();
+
         } catch (error: any) {
             this.logger.error('❌ Migration/Seeding failed:', error.message);
         }
+    }
+
+    private async runAdvancedIntelligenceMigrations() {
+        this.logger.log('📦 Creating Advanced Intelligence Module tables...');
+
+        // ── FUNCTION 11: AI Summaries & Audio Briefing ────────────────────
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ai_summaries (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                bill_id UUID REFERENCES sutra_measures(id) ON DELETE SET NULL,
+                bill_version_id UUID,
+                summary_type VARCHAR(50) NOT NULL CHECK (summary_type IN ('executive', 'technical_legal', 'tweet')),
+                content TEXT NOT NULL,
+                generated_by_model VARCHAR(100) DEFAULT 'gemini-2.0-flash',
+                language VARCHAR(10) DEFAULT 'es',
+                created_by UUID,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_ai_summaries_bill_type ON ai_summaries(bill_id, summary_type)`);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ai_diff_summaries (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                bill_id UUID REFERENCES sutra_measures(id) ON DELETE SET NULL,
+                version_from_id UUID,
+                version_to_id UUID,
+                content TEXT NOT NULL,
+                added_elements JSONB DEFAULT '[]',
+                removed_elements JSONB DEFAULT '[]',
+                generated_by_model VARCHAR(100) DEFAULT 'gemini-2.0-flash',
+                created_by UUID,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS audio_briefings (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL,
+                briefing_date DATE NOT NULL,
+                script_content TEXT NOT NULL,
+                audio_url VARCHAR(500),
+                duration_seconds INTEGER,
+                generation_status VARCHAR(50) DEFAULT 'pending' CHECK (generation_status IN ('pending', 'generating', 'completed', 'error')),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_audio_briefings_user_date ON audio_briefings(user_id, briefing_date)`);
+
+        this.logger.log('✅ AI Summaries & Audio Briefing tables created');
+
+        // ── FUNCTION 13: Executive Radar ──────────────────────────────────
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS executive_orders (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                order_number VARCHAR(50) UNIQUE NOT NULL,
+                year INTEGER NOT NULL,
+                title VARCHAR(500),
+                signed_date TIMESTAMPTZ,
+                governor_name VARCHAR(200),
+                source_url VARCHAR(1000),
+                estado_url VARCHAR(1000),
+                fortaleza_url VARCHAR(1000),
+                raw_content TEXT,
+                ai_summary TEXT,
+                agencies_involved JSONB DEFAULT '[]',
+                sectors_affected JSONB DEFAULT '[]',
+                referenced_legislation JSONB DEFAULT '[]',
+                urgency_assessment VARCHAR(20) DEFAULT 'routine' CHECK (urgency_assessment IN ('routine', 'significant', 'critical')),
+                scraped_at TIMESTAMPTZ DEFAULT NOW(),
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_executive_orders_year ON executive_orders(year)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_executive_orders_number ON executive_orders(order_number)`);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS executive_order_portfolio_alerts (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                executive_order_id UUID REFERENCES executive_orders(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL,
+                bill_id UUID REFERENCES sutra_measures(id) ON DELETE CASCADE,
+                alert_reason TEXT,
+                dismissed BOOLEAN DEFAULT false,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_eo_alerts_user ON executive_order_portfolio_alerts(user_id, dismissed)`);
+
+        this.logger.log('✅ Executive Radar tables created');
+
+        // ── FUNCTION 14: Coalition Builder ────────────────────────────────
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS coalitions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(300) NOT NULL,
+                bill_id UUID REFERENCES sutra_measures(id) ON DELETE SET NULL,
+                created_by UUID NOT NULL,
+                organization_id UUID,
+                is_active BOOLEAN DEFAULT true,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_coalitions_user ON coalitions(created_by)`);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS coalition_members (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                coalition_id UUID REFERENCES coalitions(id) ON DELETE CASCADE,
+                organization_name VARCHAR(300) NOT NULL,
+                contact_name VARCHAR(200),
+                contact_email VARCHAR(200),
+                contact_phone VARCHAR(50),
+                stance VARCHAR(20) DEFAULT 'undecided' CHECK (stance IN ('support', 'opposition', 'neutral', 'undecided')),
+                last_contact_date TIMESTAMPTZ,
+                notes TEXT,
+                added_by UUID,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS coalition_commitments (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                coalition_id UUID REFERENCES coalitions(id) ON DELETE CASCADE,
+                coalition_member_id UUID REFERENCES coalition_members(id) ON DELETE CASCADE,
+                description TEXT NOT NULL,
+                due_date TIMESTAMPTZ,
+                status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'cancelled')),
+                completed_at TIMESTAMPTZ,
+                created_by UUID,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS coalition_messages (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                coalition_id UUID REFERENCES coalitions(id) ON DELETE CASCADE,
+                author_user_id UUID NOT NULL,
+                content TEXT NOT NULL,
+                message_type VARCHAR(30) DEFAULT 'general' CHECK (message_type IN ('note', 'agreed_argument', 'task_update', 'general')),
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS registered_lobbyists (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(300) NOT NULL,
+                registration_number VARCHAR(100) UNIQUE NOT NULL,
+                firm_name VARCHAR(300),
+                represented_clients JSONB DEFAULT '[]',
+                sectors JSONB DEFAULT '[]',
+                source_url VARCHAR(1000),
+                last_synced_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_lobbyists_name ON registered_lobbyists USING GIN (to_tsvector('spanish', name))`);
+
+        this.logger.log('✅ Coalition Builder tables created');
+
+        // ── FUNCTION 15: Predictive Analysis ─────────────────────────────
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS viability_scores (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                bill_id UUID UNIQUE REFERENCES sutra_measures(id) ON DELETE CASCADE,
+                total_score DECIMAL(5,2) DEFAULT 50.0,
+                score_breakdown JSONB DEFAULT '[]',
+                confidence_level VARCHAR(20) DEFAULT 'low' CHECK (confidence_level IN ('low', 'medium', 'high')),
+                last_calculated_at TIMESTAMPTZ DEFAULT NOW(),
+                model_version VARCHAR(50) DEFAULT 'v1.0',
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS viability_historical_data (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                bill_id UUID REFERENCES sutra_measures(id) ON DELETE CASCADE,
+                data_point_type VARCHAR(100) NOT NULL,
+                value JSONB NOT NULL,
+                recorded_at TIMESTAMPTZ DEFAULT NOW(),
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_viability_history_bill ON viability_historical_data(bill_id, data_point_type)`);
+
+        // Add columns introduced in predictive-analysis v1.1
+        await pool.query(`ALTER TABLE viability_scores ADD COLUMN IF NOT EXISTS factors_with_data INTEGER DEFAULT 0`);
+        await pool.query(`ALTER TABLE viability_scores ADD COLUMN IF NOT EXISTS total_factors INTEGER DEFAULT 7`);
+
+        this.logger.log('✅ Predictive Analysis tables created');
+
+        // ── FUNCTION 16: Contract Analyzer ───────────────────────────────
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS contract_analyses (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL,
+                file_name VARCHAR(500) NOT NULL,
+                file_path VARCHAR(1000),
+                file_size INTEGER,
+                mime_type VARCHAR(100),
+                analysis_status VARCHAR(30) DEFAULT 'pending' CHECK (analysis_status IN ('pending', 'extracting', 'analyzing', 'completed', 'error')),
+                analysis_error TEXT,
+                clauses_count INTEGER DEFAULT 0,
+                conflicts_count INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_contract_analyses_user ON contract_analyses(user_id)`);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS contract_clauses (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                analysis_id UUID REFERENCES contract_analyses(id) ON DELETE CASCADE,
+                clause_index INTEGER NOT NULL,
+                clause_text TEXT NOT NULL,
+                clause_type VARCHAR(100),
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS contract_conflicts (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                clause_id UUID REFERENCES contract_clauses(id) ON DELETE CASCADE,
+                analysis_id UUID REFERENCES contract_analyses(id) ON DELETE CASCADE,
+                applicable_law VARCHAR(200),
+                law_article VARCHAR(100),
+                conflict_type VARCHAR(50) CHECK (conflict_type IN ('express_prohibition', 'missing_mandatory_requirement', 'potentially_void', 'recommended_addition')),
+                risk_level VARCHAR(20) CHECK (risk_level IN ('high', 'medium', 'low')),
+                description TEXT,
+                suggested_correction TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+
+        this.logger.log('✅ Contract Analyzer tables created');
+
+        // ── pgvector extension + PR Legal Corpus ─────────────────────────
+
+        try {
+            await pool.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+            this.logger.log('✅ pgvector extension enabled');
+        } catch (e: any) {
+            this.logger.warn(`⚠️  pgvector extension not available: ${e.message}`);
+        }
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS pr_legal_corpus (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                law_number VARCHAR(100) NOT NULL,
+                law_title VARCHAR(500),
+                article_number VARCHAR(100),
+                article_title VARCHAR(300),
+                content TEXT NOT NULL,
+                source_url VARCHAR(1000),
+                last_updated_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_pr_corpus_law ON pr_legal_corpus(law_number)`);
+
+        // Unique constraint required for ON CONFLICT (law_number, article_number) upsert
+        await pool.query(`
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'uq_pr_corpus_law_article'
+                ) THEN
+                    ALTER TABLE pr_legal_corpus
+                    ADD CONSTRAINT uq_pr_corpus_law_article UNIQUE (law_number, article_number);
+                END IF;
+            END $$
+        `);
+
+        try {
+            await pool.query(`ALTER TABLE pr_legal_corpus ADD COLUMN IF NOT EXISTS embedding vector(768)`);
+            await pool.query(`CREATE INDEX IF NOT EXISTS idx_pr_corpus_embedding ON pr_legal_corpus USING hnsw (embedding vector_cosine_ops)`);
+            this.logger.log('✅ pr_legal_corpus vector column & HNSW index created');
+        } catch (e: any) {
+            this.logger.warn(`⚠️  Could not add vector column to pr_legal_corpus: ${e.message}`);
+        }
+
+        this.logger.log('✅ PR Legal Corpus table created');
+
+        // ── Document Branding System ──────────────────────────────────────
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS document_brand_templates (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL,
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                header_image_url VARCHAR(1000),
+                header_html TEXT,
+                footer_html TEXT,
+                footer_image_url VARCHAR(1000),
+                primary_color VARCHAR(7) DEFAULT '#1a365d',
+                secondary_color VARCHAR(7) DEFAULT '#2d3748',
+                font_family VARCHAR(100) DEFAULT 'Arial, sans-serif',
+                logo_position VARCHAR(20) DEFAULT 'left' CHECK (logo_position IN ('left', 'center', 'right')),
+                is_default BOOLEAN DEFAULT false,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        `);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_brand_templates_user ON document_brand_templates(user_id)`);
+
+        this.logger.log('✅ Document Branding System table created');
+        this.logger.log('🎉 All Advanced Intelligence Module tables created successfully');
     }
 
     /**

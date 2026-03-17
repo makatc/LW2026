@@ -15,6 +15,12 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { DatabaseMigrationService } from './database-migration.service';
 import { ScrapersModule } from './scrapers/scrapers.module';
+import { CoalitionsModule } from './modules/coalitions/coalitions.module';
+import { AiSummariesModule } from './modules/ai-summaries/ai-summaries.module';
+import { BrandTemplatesModule } from './modules/brand-templates/brand-templates.module';
+import { PredictiveAnalysisModule } from './modules/predictive-analysis/predictive-analysis.module';
+import { ExecutiveRadarModule } from './modules/executive-radar/executive-radar.module';
+import { ContractAnalyzerModule } from './modules/contract-analyzer/contract-analyzer.module';
 
 @Module({
     imports: [
@@ -32,6 +38,12 @@ import { ScrapersModule } from './scrapers/scrapers.module';
         HealthModule,
         QueueModule,
         ScrapersModule,
+        CoalitionsModule,
+        AiSummariesModule,
+        BrandTemplatesModule,
+        PredictiveAnalysisModule,
+        ExecutiveRadarModule,
+        ContractAnalyzerModule,
     ],
     controllers: [],
     providers: [

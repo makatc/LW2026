@@ -234,6 +234,10 @@ export default function ComparatorPage() {
   const [autoLoading, setAutoLoading] = useState(false);
   const autoLoadDone = useRef(false);
 
+  // Detect bill_id from query params for back-link to monitor
+  const billIdFromParams = searchParams.get('prefill_bill_id') || null;
+  const billNumberFromParams = searchParams.get('prefill_bill_number') || null;
+
   // Auto-load PDFs from query params (e.g. from /medidas/[id] → Comparar versiones)
   useEffect(() => {
     if (autoLoadDone.current) return;
@@ -580,6 +584,17 @@ export default function ComparatorPage() {
                   <CheckCircle className="w-3 h-3" /> Análisis completado
                 </span>
               )}
+              {billIdFromParams && (
+                <a
+                  href={`/medidas/${billIdFromParams}`}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-slate-100 hover:border-slate-300 transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Ver {billNumberFromParams || 'medida'} en Monitor
+                </a>
+              )}
             </div>
             <button
               onClick={handleExport}
@@ -749,6 +764,23 @@ export default function ComparatorPage() {
                       </div>
                       <p className="font-medium text-gray-600 mb-1">Resumen no disponible</p>
                       <p className="text-sm text-gray-400">Configura <code className="bg-gray-100 px-1 rounded text-xs">GEMINI_API_KEY</code> para activar los resúmenes generados por IA.</p>
+                    </div>
+                  )}
+
+                  {/* ── Back-link to monitor bill ── */}
+                  {billIdFromParams && (
+                    <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
+                      <p className="text-xs text-gray-400">
+                        Esta comparación se originó desde la medida{' '}
+                        <strong className="text-gray-600">{billNumberFromParams || billIdFromParams}</strong> en el Monitor.
+                      </p>
+                      <a
+                        href={`/medidas/${billIdFromParams}#resumenes`}
+                        className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        Ver resúmenes IA en Monitor →
+                      </a>
                     </div>
                   )}
                 </div>

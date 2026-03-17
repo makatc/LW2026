@@ -2,12 +2,13 @@ import { Module, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import {
     ingestQueue, discoveryQueue, trackingQueue,
     legislatorsQueue, committeesQueue, billsQueue, votesQueue, billTextQueue,
-    defaultJobOptions,
+    contractAnalysisQueue,
 } from '../../queues';
 import {
     createIngestWorker, createDiscoveryWorker, createTrackingWorker,
     createLegislatorsWorker, createCommitteesWorker, createBillsWorker,
     createVotesWorker, createBillTextWorker,
+    createContractAnalysisWorker,
 } from '../../queues/workers';
 import { IngestModule } from '../ingest/ingest.module';
 import { DiscoveryModule } from '../discovery/discovery.module';
@@ -17,10 +18,12 @@ import { DiscoveryService } from '../discovery/discovery.service';
 import { TrackingService } from '../tracking/tracking.service';
 import { PipelineModule } from '../../scrapers/pipeline/pipeline.module';
 import { PipelineService } from '../../scrapers/pipeline/pipeline.service';
+import { ContractAnalyzerModule } from '../contract-analyzer/contract-analyzer.module';
+import { ContractAnalyzerService } from '../contract-analyzer/contract-analyzer.service';
 import { Worker } from 'bullmq';
 
 @Module({
-    imports: [IngestModule, DiscoveryModule, ActiveTrackingModule, PipelineModule],
+    imports: [IngestModule, DiscoveryModule, ActiveTrackingModule, PipelineModule, ContractAnalyzerModule],
 })
 export class QueueModule implements OnModuleInit, OnModuleDestroy {
     private readonly logger = new Logger(QueueModule.name);
@@ -31,6 +34,7 @@ export class QueueModule implements OnModuleInit, OnModuleDestroy {
         private readonly discoveryService: DiscoveryService,
         private readonly trackingService: TrackingService,
         private readonly pipelineService: PipelineService,
+        private readonly contractAnalyzerService: ContractAnalyzerService,
     ) {}
 
     async onModuleInit() {
@@ -47,8 +51,15 @@ export class QueueModule implements OnModuleInit, OnModuleDestroy {
             this.workers.push(createVotesWorker(this.pipelineService));
             this.workers.push(createBillTextWorker(this.pipelineService));
 
+            // Function 16: Contract Analyzer worker
+            this.workers.push(createContractAnalysisWorker(this.contractAnalyzerService));
+
             // Clear any previously scheduled repeatable jobs
-            const queues = [ingestQueue, discoveryQueue, trackingQueue, legislatorsQueue, committeesQueue, billsQueue, votesQueue, billTextQueue];
+            const queues = [
+                ingestQueue, discoveryQueue, trackingQueue,
+                legislatorsQueue, committeesQueue, billsQueue, votesQueue, billTextQueue,
+                contractAnalysisQueue,
+            ];
             for (const q of queues) {
                 const repeatableJobs = await q.getRepeatableJobs();
                 for (const job of repeatableJobs) {
